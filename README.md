@@ -22,11 +22,22 @@ cache/                   full upstream mirrors, one per repo (gitignored)
 
 ## Install and setup
 
-### 1. Clone amalgamator and the bench side by side
+### 1. Install the base tools
 
-Install `uv` and the base build tools first if they are missing (commands in
-step 3). `AMALGAMATOR` defaults to `../amalgamator`, so this layout works out
-of the box:
+```bash
+sudo dnf install bubblewrap git python3 gcc make          # Fedora
+sudo apt install bubblewrap git python3 build-essential   # Debian/Ubuntu
+curl -LsSf https://astral.sh/uv/install.sh | sh           # uv, if missing
+```
+
+Go, Tcl and autotools come from the build toolchains checked in step 4. Their
+locations default to `$HOME/toolchains` (`TOOLCHAINS`) and `$HOME/w8hw-tools`
+(`W8HW_ENV`); export overrides if you keep them elsewhere.
+
+### 2. Clone amalgamator and the bench side by side
+
+`AMALGAMATOR` defaults to `../amalgamator`, so this layout works out of the
+box:
 
 ```bash
 mkdir -p ~/work && cd ~/work
@@ -38,7 +49,7 @@ cd amalgamator && uv sync --extra test --extra dev && cd ..
 The runner expects a built virtualenv at `$AMALGAMATOR/.venv`. If your
 checkout lives elsewhere, export `AMALGAMATOR=/path/to/amalgamator`.
 
-### 2. Point the bench at a model
+### 3. Point the bench at a model
 
 ```bash
 cd backport_bench
@@ -64,27 +75,20 @@ records only the key *path*, never the key. Non-interactive use:
   --api-key-file ~/.config/amalgamator/keys/litellm
 ```
 
-### 3. Check the environment
+### 4. Check the environment
 
 ```bash
+cd ~/work/backport_bench
 ./scripts/check-prereqs.sh
 ```
 
 It verifies `git`, Python, `bubblewrap`, `flock`, the amalgamator venv, the
 model registry, Go + the x/crypto module cache, Tcl, autotools, free disk and
-the capability to build a user/network namespace. Install the base tools with
-your package manager, for example:
+the capability to build a user/network namespace, printing `ok` or `MISSING`
+for each item. Install whatever it reports missing; the toolchain locations are
+the `TOOLCHAINS` and `W8HW_ENV` paths from step 1.
 
-```bash
-sudo dnf install bubblewrap git python3 gcc make     # Fedora
-sudo apt install bubblewrap git python3 build-essential  # Debian/Ubuntu
-curl -LsSf https://astral.sh/uv/install.sh | sh      # uv
-```
-
-Toolchain locations default to `$HOME/toolchains` (`TOOLCHAINS`) and
-`$HOME/w8hw-tools` (`W8HW_ENV`); export overrides if you keep them elsewhere.
-
-### 4. Build the case packs
+### 5. Build the case packs
 
 ```bash
 ./scripts/build-all.sh
@@ -102,7 +106,7 @@ remotes, tags, reflogs or unreachable objects. It then runs the leak check:
 
 A failing check aborts the case.
 
-### 5. Run
+### 6. Run
 
 ```bash
 ./scripts/run-case.sh pcre2          # quick single case (under a minute)
