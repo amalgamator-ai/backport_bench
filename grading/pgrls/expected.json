@@ -1,0 +1,18 @@
+{
+  "case": "pgrls",
+  "expected_outcome": "success",
+  "human_backport": "4167810cfe62d5ed4cf70a576a2eed87e2f246a8",
+  "notes": "target is the exact parent of the human backport.",
+  "reference_runs": [
+    {
+      "date": "20261121",
+      "outcome": "success",
+      "wall_s": 1733,
+      "input_tokens": 11481643,
+      "output_tokens": 169395,
+      "audit": "PASS",
+      "model": "deepseek-v41-flash",
+      "reasoning_effort": "medium"
+    }
+  ]
+}

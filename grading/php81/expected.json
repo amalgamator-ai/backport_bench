@@ -1,0 +1,17 @@
+{
+  "case": "php81",
+  "expected_outcome": "success",
+  "human_backport": "fix reached 8.1 via branch merges after the cut",
+  "reference_runs": [
+    {
+      "date": "20261121",
+      "outcome": "success",
+      "wall_s": 2630,
+      "input_tokens": 38485005,
+      "output_tokens": 219503,
+      "audit": "PASS",
+      "model": "deepseek-v41-flash",
+      "reasoning_effort": "medium"
+    }
+  ]
+}

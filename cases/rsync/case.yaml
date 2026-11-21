@@ -1,0 +1,37 @@
+issue_id: CVE-2026-29518-rsync-daemon-no-chroot
+bug_description: |
+  An rsync daemon module can be configured with "use chroot = no". With chroot disabled, the sender
+  and receiver resolved module-relative paths by string concatenation and then opened them, so a local
+  user able to change symlinks inside a writable module could race path resolution and make the daemon
+  read or write files outside the module (CVE-2026-29518, TOCTOU symlink race leading to arbitrary
+  file write and privilege escalation). The upstream fix threads module-root-relative path handling
+  through syscall.c (am_chrooted, use_secure_symlinks), clientserver.c, options.c, receiver.c and
+  sender.c so files are opened relative to the module root rather than by a concatenated path, and
+  updates option negotiation. The backport must port both upstream fix commits to the lts/3.2 branch,
+  whose option and syscall code has diverged substantially from master.
+repository:
+  source_path: ${BACKPORT_REPOS}/repo.git
+  workdir: ${BACKPORT_WORK}
+branches:
+  source: master
+  targets:
+  - lts/3.2
+fix:
+  commit: 859d44fa4f1420775e4ba050337ef32092f2894c
+build:
+  command: |-
+    export PATH=${W8HW_ENV}/env/bin:$PATH
+    CFLAGS='-std=gnu17 -O2' ac_cv_func_lseek64=no ./configure --disable-openssl --disable-zstd --disable-lz4 --disable-xxhash --disable-md2man
+    make -j$(nproc)
+  test_command: |-
+    gcc -shared -fPIC -o /tmp/sandbox_setgroups.so /case/sandbox_setgroups.c
+    LD_PRELOAD=/tmp/sandbox_setgroups.so make check
+advanced:
+  timeout_minutes: 60
+  fused_pre_red: true
+  fused_resolution: true
+  fused_compact_prompts: true
+  tool_read_cap: 20000
+  tool_bash_cap: 12000
+  context_length: 1000000
+model: deepseek-v41-flash

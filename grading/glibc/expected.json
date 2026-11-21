@@ -1,0 +1,18 @@
+{
+  "case": "glibc",
+  "expected_outcome": "success",
+  "human_backport": "f18446d7b4a423090ee5e328c36b3c2a0f26041c",
+  "notes": "target is the exact parent of the human backport.",
+  "reference_runs": [
+    {
+      "date": "20261121",
+      "outcome": "success",
+      "wall_s": 1478,
+      "input_tokens": 1316271,
+      "output_tokens": 40106,
+      "audit": "PASS",
+      "model": "deepseek-v41-flash",
+      "reasoning_effort": "medium"
+    }
+  ]
+}

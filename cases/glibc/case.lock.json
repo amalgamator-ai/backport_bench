@@ -1,0 +1,20 @@
+{
+  "case": "glibc",
+  "upstream": "https://github.com/bminor/glibc.git",
+  "created": "2026-11-21T04:58:37+00:00",
+  "refs": {
+    "master": "c9188d333717d3ceb7e3020011651f424f749f93",
+    "eval/glibc-2.31": "831299deb7618c86a0d5dec5e67dae05dfb98f05"
+  },
+  "fix": {
+    "kind": "commit",
+    "sha": "c9188d333717d3ceb7e3020011651f424f749f93"
+  },
+  "target_tree": "bfce188da10f2377a8e737ff20c598658db46b46",
+  "forbidden": [
+    "f18446d7b4a423090ee5e328c36b3c2a0f26041c"
+  ],
+  "human_backports_detected": [
+    "f18446d7b4a423090ee5e328c36b3c2a0f26041c"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "case": "postgres-15742",
+  "expected_outcome": "success",
+  "human_backport": null,
+  "reference_runs": [
+    {
+      "date": "20261120",
+      "outcome": "success",
+      "wall_s": 619,
+      "input_tokens": 1962474,
+      "output_tokens": 38802,
+      "audit": "PASS",
+      "model": "deepseek-v41-flash",
+      "reasoning_effort": "medium"
+    }
+  ]
+}

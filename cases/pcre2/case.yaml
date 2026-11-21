@@ -1,0 +1,32 @@
+issue_id: CVE-2025-58050-pcre2-10.45
+bug_description: |
+  PCRE2's matcher supports (*ACCEPT) inside a scan-substring block ((*scs:...)). When the block is
+  entered the matcher saves the subject-buffer state; an (*ACCEPT) that unwinds out of the block did
+  not restore that saved state, so the match state could point before the restored subject start and
+  matching could read past the end of the subject buffer (CVE-2025-58050, out-of-bounds read). The
+  upstream fix restores the saved buffer pointer when a scan-substring block is unwound by ACCEPT and
+  adds a regression test to testdata/testinput2 and testdata/testoutput2. The backport must apply the
+  same fix to the 10.45 release branch, whose matcher sources have diverged from main.
+repository:
+  source_path: ${BACKPORT_REPOS}/repo.git
+  workdir: ${BACKPORT_WORK}
+branches:
+  source: main
+  targets:
+  - release/pcre2-10.45
+fix:
+  commit: a141712e5967d448c7ce13090ab530c8e3d82254
+build:
+  command: |-
+    cmake -S . -B build -DPCRE2_BUILD_TESTS=ON -DPCRE2_SUPPORT_JIT=OFF -DPCRE2_BUILD_PCRE2_16=ON -DPCRE2_BUILD_PCRE2_32=ON
+    cmake --build build -j$(nproc)
+  test_command: ctest --test-dir build --output-on-failure -R 'pcre2' --timeout 600
+advanced:
+  timeout_minutes: 90
+  fused_pre_red: true
+  fused_resolution: true
+  fused_compact_prompts: true
+  tool_read_cap: 20000
+  tool_bash_cap: 12000
+  context_length: 1000000
+model: deepseek-v41-flash

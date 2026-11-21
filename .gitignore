@@ -1,0 +1,5 @@
+cache/
+results/
+models/models.local.yaml
+cases/*/repo.git
+__pycache__/

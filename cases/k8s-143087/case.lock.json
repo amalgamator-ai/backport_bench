@@ -1,0 +1,16 @@
+{
+  "case": "k8s-143087",
+  "upstream": "https://github.com/kubernetes/kubernetes.git",
+  "created": "2026-11-21T04:54:21+00:00",
+  "refs": {
+    "fixbase": "f401533d3036a7f7a18d0fb82f4e1c7ce7598138",
+    "release-1.35": "16d4dfd6317ea18c38bb660f96dd3eaea30e963e"
+  },
+  "fix": {
+    "kind": "patch",
+    "sha": ""
+  },
+  "target_tree": "1d6ff65b595cb5e64d118aff5853710b13cbba6b",
+  "forbidden": [],
+  "human_backports_detected": []
+}

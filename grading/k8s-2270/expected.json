@@ -1,0 +1,17 @@
+{
+  "case": "k8s-2270",
+  "expected_outcome": "success",
+  "human_backport": null,
+  "reference_runs": [
+    {
+      "date": "20261121",
+      "outcome": "success",
+      "wall_s": 343,
+      "input_tokens": 137326,
+      "output_tokens": 4410,
+      "audit": "PASS",
+      "model": "deepseek-v41-flash",
+      "reasoning_effort": "medium"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+# Example model registry. Copy to models.local.yaml (gitignored) and edit.
+# Keep the profile key: the case configs reference it by name.
+models:
+  deepseek-v41-flash:
+    provider: litellm
+    model: openai/<served-model-name>
+    api_base: https://<your-litellm-endpoint>/v1
+    api_key_file: ~/.config/amalgamator/keys/<provider>
+    context_length: 1000000
+    params:
+      max_tokens: 32768
+      reasoning_effort: medium
+default: deepseek-v41-flash

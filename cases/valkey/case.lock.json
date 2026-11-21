@@ -1,0 +1,18 @@
+{
+  "case": "valkey",
+  "upstream": "https://github.com/valkey-io/valkey.git",
+  "created": "2026-11-21T04:56:22+00:00",
+  "refs": {
+    "unstable": "fea0b4064cf612d1c365b032326832bff0946bd9",
+    "8.0": "e058d4690f7e4d8b34f2c7c260a1709dc3aa5ff8"
+  },
+  "fix": {
+    "kind": "commit",
+    "sha": "fea0b4064cf612d1c365b032326832bff0946bd9"
+  },
+  "target_tree": "d8769ee29c98825ee860fd579a692eba18674a8d",
+  "forbidden": [
+    "fdc142c6558071c5009c9ef84ee804a33667b14d"
+  ],
+  "human_backports_detected": []
+}

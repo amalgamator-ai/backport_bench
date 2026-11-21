@@ -1,0 +1,39 @@
+issue_id: CVE-2026-15742-postgres-14
+bug_description: 'PostgreSQL''s fuzzystrmatch extension (Levenshtein distance) performs size and index
+  arithmetic that can integer-wrap for very large inputs. The result is a write to an effectively arbitrary
+  address, allowing a query author to execute arbitrary code as the operating-system user running the
+  database (CVE-2026-15742, CVSS 8.8). The fix commit on main is 918683d12d849a514cd38056aab882322c74adb4
+  ("Avoid overflow in Levenshtein distance calculations"). It hardens src/backend/utils/adt/levenshtein.c
+  and src/backend/utils/adt/varlena.c and adds regression coverage to contrib/fuzzystrmatch. Port the
+  fix and its tests to REL_14_STABLE.
+
+  '
+repository:
+  source_path: ${BACKPORT_REPOS}/repo.git
+  workdir: ${BACKPORT_WORK}
+branches:
+  source: main
+  target: REL_14_STABLE
+fix:
+  commit: 918683d12d849a514cd38056aab882322c74adb4
+build:
+  command: export PATH=${TOOLCHAINS}/rpmroot/usr/bin:${TOOLCHAINS}/bin:$PATH; export
+    BISON_PKGDATADIR=${TOOLCHAINS}/rpmroot/usr/share/bison; export M4=${TOOLCHAINS}/rpmroot/usr/bin/m4;
+    export PERL5LIB=${TOOLCHAINS}/perl5lib/usr/share/perl5/vendor_perl:${TOOLCHAINS}/perl5lib/usr/share/perl5:${TOOLCHAINS}/perl5lib/usr/lib64/perl5/vendor_perl:${TOOLCHAINS}/perl5lib/usr/lib64/perl5;
+    if [ ! -f GNUmakefile ]; then ./configure --without-readline --without-zlib --prefix="$PWD/../pg-inst";
+    fi; make -j8
+  test_command: export PATH=${TOOLCHAINS}/rpmroot/usr/bin:${TOOLCHAINS}/bin:$PATH; export
+    BISON_PKGDATADIR=${TOOLCHAINS}/rpmroot/usr/share/bison; export M4=${TOOLCHAINS}/rpmroot/usr/bin/m4;
+    export PERL5LIB=${TOOLCHAINS}/perl5lib/usr/share/perl5/vendor_perl:${TOOLCHAINS}/perl5lib/usr/share/perl5:${TOOLCHAINS}/perl5lib/usr/lib64/perl5/vendor_perl:${TOOLCHAINS}/perl5lib/usr/lib64/perl5;
+    make -C contrib/fuzzystrmatch check
+model: deepseek-v41-flash
+advanced:
+  context_length: 1000000
+  max_build_test_retries: 3
+  timeout_minutes: 120
+  max_resolution_retries: 3
+  fused_pre_red: true
+  fused_resolution: true
+  fused_compact_prompts: true
+  tool_read_cap: 20000
+  tool_bash_cap: 12000

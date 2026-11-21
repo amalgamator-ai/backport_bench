@@ -1,0 +1,48 @@
+issue_id: k8s-143087-cherry-pick-1.35
+bug_description: 'This is a real, human-requested backport. Kubernetes PR #143087 ("kubeadm: fix etcd
+  data rollback and retry the etcd backup", merged to master as b5ef31dc5c9c) fixes a kubeadm etcd upgrade
+  bug: when an etcd upgrade fails, kubeadm restores the etcd data directory from the backup taken before
+  the upgrade. The backup was copied into an already existing backup directory, so the data landed one
+  level too deep, and the restore then copied the whole backup directory inside the live data directory.
+  The restore never worked on Linux and could leave a broken etcd data directory after a failed upgrade.
+  The fix supplies a portable CopyDir(src, dest) error helper that copies the CONTENTS of src into dest,
+  uses it for backup and rollback, retries the backup, and makes the rollback clear the live member directory
+  first.
+
+  The fix was requested for release-1.37, release-1.36 and release-1.35. This case is the release-1.35
+  backport (upstream PR #143434), which could not be produced by the cherry-pick script because the fix''s
+  new copy helpers were added in a package that does not exist on release-1.35: there, the copy helpers
+  are in cmd/kubeadm/app/util with a different signature. The fix must therefore be adapted to the release-1.35
+  layout rather than cherry-picked verbatim. A regression test for CopyDir is already present on the target
+  branch and currently fails; the complete production fix must make it pass without changing the test.
+
+  '
+repository:
+  source_path: ${BACKPORT_REPOS}/repo.git
+  workdir: ${BACKPORT_WORK}
+branches:
+  source: fixbase
+  target: release-1.35
+fix:
+  patch: ./fix.patch
+  upstream_ref: b5ef31dc5c9cd741ff6ac8ffaed5d93405e1ae50
+build:
+  command: export PATH=${TOOLCHAINS}/go/bin:$PATH; export CGO_ENABLED=0 GOFLAGS=-mod=vendor GOPROXY=off;
+    export GOCACHE="$(dirname "$PWD")/.gocache" GOTMPDIR="$(dirname "$PWD")/.gotmp" TMPDIR="$(dirname
+    "$PWD")/.tmp"; mkdir -p "$GOCACHE" "$GOTMPDIR" "$TMPDIR"; go build -o "$(dirname "$PWD")/kubeadm-bin"
+    ./cmd/kubeadm
+  test_command: export PATH=${TOOLCHAINS}/go/bin:$PATH; export CGO_ENABLED=0 GOFLAGS=-mod=vendor
+    GOPROXY=off; export GOCACHE="$(dirname "$PWD")/.gocache" GOTMPDIR="$(dirname "$PWD")/.gotmp" TMPDIR="$(dirname
+    "$PWD")/.tmp"; mkdir -p "$GOCACHE" "$GOTMPDIR" "$TMPDIR"; go test -count=1 ./cmd/kubeadm/app/phases/upgrade
+    ./cmd/kubeadm/app/util
+model: deepseek-v41-flash
+advanced:
+  context_length: 1000000
+  timeout_minutes: 180
+  max_build_test_retries: 3
+  max_resolution_retries: 3
+  fused_pre_red: true
+  fused_resolution: true
+  fused_compact_prompts: true
+  tool_read_cap: 20000
+  tool_bash_cap: 12000

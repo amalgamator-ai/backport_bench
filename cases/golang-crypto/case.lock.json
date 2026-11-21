@@ -1,0 +1,16 @@
+{
+  "case": "golang-crypto",
+  "upstream": "https://github.com/golang/crypto.git",
+  "created": "2026-11-21T04:56:07+00:00",
+  "refs": {
+    "master": "7292932d45d55c7199324ab0027cc86e8198aa22",
+    "v0.33.0": "9290511cd23ab9813a307b7f2615325e3ca98902"
+  },
+  "fix": {
+    "kind": "commit",
+    "sha": "7292932d45d55c7199324ab0027cc86e8198aa22"
+  },
+  "target_tree": "5ac9cc9cf7bc6e7e9a2d9a3ae31c1e54df6a2376",
+  "forbidden": [],
+  "human_backports_detected": []
+}

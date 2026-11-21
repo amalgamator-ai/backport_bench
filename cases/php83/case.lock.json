@@ -1,0 +1,16 @@
+{
+  "case": "php83",
+  "upstream": "https://github.com/php/php-src.git",
+  "created": "2026-11-21T05:09:26+00:00",
+  "refs": {
+    "master": "3584a98bda0f2c0d367255b046798b0d3a221a19",
+    "eval/w8hw/PHP-8.3-eol": "54b4c1a67cfdf6d4144579fb574f75ff75e7f67b"
+  },
+  "fix": {
+    "kind": "commit",
+    "sha": "3584a98bda0f2c0d367255b046798b0d3a221a19"
+  },
+  "target_tree": "34e9defa74f8fd82cbb884dfce333bd1bdf2b94d",
+  "forbidden": [],
+  "human_backports_detected": []
+}

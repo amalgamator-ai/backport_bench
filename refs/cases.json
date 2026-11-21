@@ -1,0 +1,314 @@
+{
+  "version": 1,
+  "cases": {
+    "runc": {
+      "upstream": "https://github.com/opencontainers/runc.git",
+      "source": {
+        "branch": "main",
+        "sha": "2f74f4ae1b483b3a4d197f574a37c7b768baf96f",
+        "depth": 2
+      },
+      "target": {
+        "branch": "release/1.2",
+        "sha": "2462b68fa2d6618480e6a4f615661ee6e762d13a",
+        "depth": 1,
+        "upstream_branch": "release-1.2"
+      },
+      "fix": {
+        "kind": "commit",
+        "sha": "2f74f4ae1b483b3a4d197f574a37c7b768baf96f"
+      },
+      "forbidden": [],
+      "difficulty": "hard"
+    },
+    "containerd": {
+      "upstream": "https://github.com/containerd/containerd.git",
+      "source": {
+        "branch": "main",
+        "sha": "0ec1af4cae1256d18719ca892bf66340499e8050",
+        "depth": 2
+      },
+      "target": {
+        "branch": "release/1.7",
+        "sha": "9d386ad4e2ae7dfc7fa59fa5d289b61b76ba6546",
+        "depth": 1
+      },
+      "fix": {
+        "kind": "commit",
+        "sha": "0ec1af4cae1256d18719ca892bf66340499e8050"
+      },
+      "forbidden": [],
+      "difficulty": "medium"
+    },
+    "postgres-15742": {
+      "upstream": "https://github.com/postgres/postgres.git",
+      "source": {
+        "branch": "main",
+        "sha": "918683d12d849a514cd38056aab882322c74adb4",
+        "depth": 2
+      },
+      "target": {
+        "branch": "REL_14_STABLE",
+        "sha": "1f49beef271ef920f129fcb8513c56347803444a",
+        "depth": 1
+      },
+      "fix": {
+        "kind": "commit",
+        "sha": "918683d12d849a514cd38056aab882322c74adb4"
+      },
+      "forbidden": [],
+      "difficulty": "medium"
+    },
+    "k8s-2270": {
+      "upstream": "https://github.com/kubernetes/kubernetes.git",
+      "source": {
+        "branch": "main",
+        "sha": "a1d21b1af2befcb037a105bc46114296c33740af",
+        "depth": 2
+      },
+      "target": {
+        "branch": "release-1.34",
+        "sha": "cbc75b8ca4baa61a4e6542385141e15a2d840d0d",
+        "depth": 1
+      },
+      "fix": {
+        "kind": "commit",
+        "sha": "a1d21b1af2befcb037a105bc46114296c33740af"
+      },
+      "forbidden": [],
+      "difficulty": "hard"
+    },
+    "k8s-143087": {
+      "upstream": "https://github.com/kubernetes/kubernetes.git",
+      "source": {
+        "branch": "fixbase",
+        "sha": "f401533d3036a7f7a18d0fb82f4e1c7ce7598138",
+        "depth": 1
+      },
+      "target": {
+        "branch": "release-1.35",
+        "sha": "16d4dfd6317ea18c38bb660f96dd3eaea30e963e",
+        "depth": 1
+      },
+      "fix": {
+        "kind": "patch",
+        "path": "cases/k8s-143087/fix.patch",
+        "upstream_ref": "b5ef31dc5c9cd741ff6ac8ffaed5d93405e1ae50"
+      },
+      "tests_patch": "cases/k8s-143087/tests.patch",
+      "forbidden": [
+        "53f77f1db97"
+      ],
+      "difficulty": "simple"
+    },
+    "glibc": {
+      "upstream": "https://github.com/bminor/glibc.git",
+      "source": {
+        "branch": "master",
+        "sha": "c9188d333717d3ceb7e3020011651f424f749f93",
+        "depth": 2
+      },
+      "target": {
+        "branch": "eval/glibc-2.31",
+        "sha": "831299deb7618c86a0d5dec5e67dae05dfb98f05",
+        "depth": 1,
+        "upstream_branch": "release/2.31/master"
+      },
+      "fix": {
+        "kind": "commit",
+        "sha": "c9188d333717d3ceb7e3020011651f424f749f93"
+      },
+      "forbidden": [
+        "f18446d7b4a423090ee5e328c36b3c2a0f26041c"
+      ],
+      "difficulty": "hard"
+    },
+    "php81": {
+      "upstream": "https://github.com/php/php-src.git",
+      "source": {
+        "branch": "master",
+        "sha": "3584a98bda0f2c0d367255b046798b0d3a221a19",
+        "depth": 2
+      },
+      "target": {
+        "branch": "eval/w8hw/PHP-8.1-eol",
+        "sha": "6f82565f12630ba320c52c96e28160189b15ecbf",
+        "depth": 1,
+        "upstream_branch": "PHP-8.1"
+      },
+      "fix": {
+        "kind": "commit",
+        "sha": "3584a98bda0f2c0d367255b046798b0d3a221a19"
+      },
+      "forbidden": [],
+      "difficulty": "extreme"
+    },
+    "php82": {
+      "upstream": "https://github.com/php/php-src.git",
+      "source": {
+        "branch": "master",
+        "sha": "3584a98bda0f2c0d367255b046798b0d3a221a19",
+        "depth": 2
+      },
+      "target": {
+        "branch": "eval/w8hw/PHP-8.2-eol",
+        "sha": "512c04e39f674dbf4133b8fbbd381cd8c2df6836",
+        "depth": 1,
+        "upstream_branch": "PHP-8.2"
+      },
+      "fix": {
+        "kind": "commit",
+        "sha": "3584a98bda0f2c0d367255b046798b0d3a221a19"
+      },
+      "forbidden": [],
+      "difficulty": "hard"
+    },
+    "php83": {
+      "upstream": "https://github.com/php/php-src.git",
+      "source": {
+        "branch": "master",
+        "sha": "3584a98bda0f2c0d367255b046798b0d3a221a19",
+        "depth": 2
+      },
+      "target": {
+        "branch": "eval/w8hw/PHP-8.3-eol",
+        "sha": "54b4c1a67cfdf6d4144579fb574f75ff75e7f67b",
+        "depth": 1,
+        "upstream_branch": "PHP-8.3"
+      },
+      "fix": {
+        "kind": "commit",
+        "sha": "3584a98bda0f2c0d367255b046798b0d3a221a19"
+      },
+      "forbidden": [],
+      "difficulty": "extreme"
+    },
+    "pgrls": {
+      "upstream": "https://github.com/postgres/postgres.git",
+      "source": {
+        "branch": "master",
+        "sha": "315c4e4e85f3fae5ebc3a62d69b5400138d307f9",
+        "depth": 2
+      },
+      "target": {
+        "branch": "eval/REL_14_STABLE",
+        "sha": "9fe1c78135f44c3c16c18d4aee305ec83fbc0c56",
+        "depth": 1,
+        "upstream_branch": "REL_14_STABLE"
+      },
+      "fix": {
+        "kind": "commit",
+        "sha": "315c4e4e85f3fae5ebc3a62d69b5400138d307f9"
+      },
+      "forbidden": [
+        "4167810cfe62d5ed4cf70a576a2eed87e2f246a8"
+      ],
+      "difficulty": "hard"
+    },
+    "pcre2": {
+      "upstream": "https://github.com/PCRE2Project/pcre2.git",
+      "source": {
+        "branch": "main",
+        "sha": "a141712e5967d448c7ce13090ab530c8e3d82254",
+        "depth": 2
+      },
+      "target": {
+        "branch": "release/pcre2-10.45",
+        "sha": "2dce7761b1831fd3f82a9c2bd5476259d945da4d",
+        "depth": 1
+      },
+      "fix": {
+        "kind": "commit",
+        "sha": "a141712e5967d448c7ce13090ab530c8e3d82254"
+      },
+      "forbidden": [],
+      "difficulty": "easy"
+    },
+    "golang-crypto": {
+      "upstream": "https://github.com/golang/crypto.git",
+      "source": {
+        "branch": "master",
+        "sha": "7292932d45d55c7199324ab0027cc86e8198aa22",
+        "depth": 2
+      },
+      "target": {
+        "branch": "v0.33.0",
+        "sha": "9290511cd23ab9813a307b7f2615325e3ca98902",
+        "depth": 1
+      },
+      "fix": {
+        "kind": "commit",
+        "sha": "7292932d45d55c7199324ab0027cc86e8198aa22"
+      },
+      "forbidden": [],
+      "difficulty": "medium"
+    },
+    "valkey": {
+      "upstream": "https://github.com/valkey-io/valkey.git",
+      "source": {
+        "branch": "unstable",
+        "sha": "fea0b4064cf612d1c365b032326832bff0946bd9",
+        "depth": 2
+      },
+      "target": {
+        "branch": "8.0",
+        "sha": "e058d4690f7e4d8b34f2c7c260a1709dc3aa5ff8",
+        "depth": 1
+      },
+      "fix": {
+        "kind": "commit",
+        "sha": "fea0b4064cf612d1c365b032326832bff0946bd9"
+      },
+      "forbidden": [
+        "fdc142c6558071c5009c9ef84ee804a33667b14d"
+      ],
+      "difficulty": "medium"
+    },
+    "rsync": {
+      "upstream": "https://github.com/RsyncProject/rsync.git",
+      "source": {
+        "branch": "master",
+        "sha": "859d44fa4f1420775e4ba050337ef32092f2894c",
+        "depth": 3
+      },
+      "target": {
+        "branch": "lts/3.2",
+        "sha": "9bb61092e494397971dd40b1ce2e73829eacf820",
+        "depth": 1
+      },
+      "fix": {
+        "kind": "commit",
+        "sha": "859d44fa4f1420775e4ba050337ef32092f2894c"
+      },
+      "forbidden": [
+        "ac47b0136349405f6c7198a298d454bbb37d0855",
+        "04338c6b93da2ba9f218eb920e7eeb345a341d5f"
+      ],
+      "difficulty": "hard"
+    },
+    "cpython-tarfile": {
+      "upstream": "https://github.com/python/cpython.git",
+      "source": {
+        "branch": "main",
+        "sha": "3612d8f51741b11f36f8fb0494d79086bac9390a",
+        "depth": 2
+      },
+      "target": {
+        "branch": "3.12",
+        "sha": "f3272d863004e291ab00620e71dee1cfa0fc9f83",
+        "depth": 1,
+        "upstream_branch": "3.12"
+      },
+      "fix": {
+        "kind": "commit",
+        "sha": "3612d8f51741b11f36f8fb0494d79086bac9390a"
+      },
+      "forbidden": [
+        "19de092debb3d7e832e5672cc2f7b788d35951da",
+        "aa9eb5f757ceff461e6e996f12c89e5d9b583b01",
+        "4633f3f497b1ff70e4a35b6fe2c907cbe2d4cb2e"
+      ],
+      "difficulty": "extreme"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "case": "cpython-tarfile",
+  "expected_outcome": "success",
+  "human_backport": [
+    "19de092debb3d7e832e5672cc2f7b788d35951da",
+    "aa9eb5f757ceff461e6e996f12c89e5d9b583b01",
+    "4633f3f497b1ff70e4a35b6fe2c907cbe2d4cb2e"
+  ],
+  "notes": "19de092debb3d7e832e5672cc2f7b788d35951da on 3.12 (also aa9eb5f7 on 3.13, 4633f3f4 on 3.11)",
+  "reference_runs": [
+    {
+      "date": "20261121",
+      "outcome": "success",
+      "wall_s": 2717,
+      "input_tokens": 25446851,
+      "output_tokens": 243785,
+      "audit": "PASS",
+      "model": "deepseek-v41-flash",
+      "reasoning_effort": "medium"
+    }
+  ]
+}

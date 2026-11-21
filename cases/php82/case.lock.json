@@ -1,0 +1,16 @@
+{
+  "case": "php82",
+  "upstream": "https://github.com/php/php-src.git",
+  "created": "2026-11-21T05:06:06+00:00",
+  "refs": {
+    "master": "3584a98bda0f2c0d367255b046798b0d3a221a19",
+    "eval/w8hw/PHP-8.2-eol": "512c04e39f674dbf4133b8fbbd381cd8c2df6836"
+  },
+  "fix": {
+    "kind": "commit",
+    "sha": "3584a98bda0f2c0d367255b046798b0d3a221a19"
+  },
+  "target_tree": "dfd2d5f2c6f6b169041c6fde3607e3c222ddc956",
+  "forbidden": [],
+  "human_backports_detected": []
+}

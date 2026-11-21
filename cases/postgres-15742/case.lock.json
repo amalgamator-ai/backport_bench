@@ -1,0 +1,16 @@
+{
+  "case": "postgres-15742",
+  "upstream": "https://github.com/postgres/postgres.git",
+  "created": "2026-11-21T04:49:15+00:00",
+  "refs": {
+    "main": "918683d12d849a514cd38056aab882322c74adb4",
+    "REL_14_STABLE": "1f49beef271ef920f129fcb8513c56347803444a"
+  },
+  "fix": {
+    "kind": "commit",
+    "sha": "918683d12d849a514cd38056aab882322c74adb4"
+  },
+  "target_tree": "b5b4c16a3cad8393e186cd1bfe1e445e7bd6c755",
+  "forbidden": [],
+  "human_backports_detected": []
+}

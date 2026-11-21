@@ -1,0 +1,19 @@
+{
+  "case": "rsync",
+  "upstream": "https://github.com/RsyncProject/rsync.git",
+  "created": "2026-11-21T04:56:38+00:00",
+  "refs": {
+    "master": "859d44fa4f1420775e4ba050337ef32092f2894c",
+    "lts/3.2": "9bb61092e494397971dd40b1ce2e73829eacf820"
+  },
+  "fix": {
+    "kind": "commit",
+    "sha": "859d44fa4f1420775e4ba050337ef32092f2894c"
+  },
+  "target_tree": "d45eaf228b1290b1381b760319fa314d247cb0ba",
+  "forbidden": [
+    "04338c6b93da2ba9f218eb920e7eeb345a341d5f",
+    "ac47b0136349405f6c7198a298d454bbb37d0855"
+  ],
+  "human_backports_detected": []
+}

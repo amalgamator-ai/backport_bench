@@ -1,0 +1,16 @@
+{
+  "case": "pcre2",
+  "upstream": "https://github.com/PCRE2Project/pcre2.git",
+  "created": "2026-11-21T16:33:09+00:00",
+  "refs": {
+    "main": "a141712e5967d448c7ce13090ab530c8e3d82254",
+    "release/pcre2-10.45": "2dce7761b1831fd3f82a9c2bd5476259d945da4d"
+  },
+  "fix": {
+    "kind": "commit",
+    "sha": "a141712e5967d448c7ce13090ab530c8e3d82254"
+  },
+  "target_tree": "19128ab48f9c83b0821823e7e30045346c4cbeeb",
+  "forbidden": [],
+  "human_backports_detected": []
+}

@@ -1,0 +1,20 @@
+{
+  "case": "containerd",
+  "upstream": "https://github.com/containerd/containerd.git",
+  "created": "2026-11-21T04:47:34+00:00",
+  "refs": {
+    "main": "0ec1af4cae1256d18719ca892bf66340499e8050",
+    "release/1.7": "9d386ad4e2ae7dfc7fa59fa5d289b61b76ba6546"
+  },
+  "fix": {
+    "kind": "commit",
+    "sha": "0ec1af4cae1256d18719ca892bf66340499e8050"
+  },
+  "target_tree": "821c1b15a3ff90da6afb45256f236b0eba074748",
+  "forbidden": [
+    "4d8ba4d23561c9ec21b0113ddcfc22f41792b25e"
+  ],
+  "human_backports_detected": [
+    "4d8ba4d23561c9ec21b0113ddcfc22f41792b25e"
+  ]
+}

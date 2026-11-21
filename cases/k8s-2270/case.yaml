@@ -1,0 +1,36 @@
+issue_id: CVE-2026-2270-kubernetes-1.34
+bug_description: 'A confused-deputy flaw exists in the Kubernetes StatefulSet controller (CVE-2026-2270).
+  When the controller restores a StatefulSet from a ControllerRevision, it can copy the entire revision
+  object, including namespace and metadata, instead of only the StatefulSet spec. A user with namespace-scoped
+  write access to StatefulSet and ControllerRevision objects can therefore construct a cross-namespace
+  pod with attacker-controlled metadata and spec. The fix commit on main is a1d21b1af2befcb037a105bc46114296c33740af
+  ("Restore only .spec part from ControllerRevision for any StatefulSet"); it changes pkg/controller/statefulset/stateful_set_utils.go
+  and adds an extensive regression test in stateful_set_utils_test.go. Port the fix and its tests to release-1.34.
+
+  '
+repository:
+  source_path: ${BACKPORT_REPOS}/repo.git
+  workdir: ${BACKPORT_WORK}
+branches:
+  source: main
+  target: release-1.34
+fix:
+  commit: a1d21b1af2befcb037a105bc46114296c33740af
+build:
+  command: export PATH=${TOOLCHAINS}/go/bin:$PATH; export CGO_ENABLED=0 GOFLAGS=-mod=vendor GOPROXY=off;
+    export GOCACHE="$PWD/.gocache" GOTMPDIR="$PWD/.gotmp" TMPDIR="$PWD/.tmp"; mkdir -p "$GOCACHE" "$GOTMPDIR"
+    "$TMPDIR"; go build -o "$(dirname "$PWD")/kube-controller-manager-bin" ./cmd/kube-controller-manager
+  test_command: export PATH=${TOOLCHAINS}/go/bin:$PATH; export CGO_ENABLED=0 GOFLAGS=-mod=vendor
+    GOPROXY=off; export GOCACHE="$PWD/.gocache" GOTMPDIR="$PWD/.gotmp" TMPDIR="$PWD/.tmp"; mkdir -p "$GOCACHE"
+    "$GOTMPDIR" "$TMPDIR"; go test -count=1 ./pkg/controller/statefulset/...
+model: deepseek-v41-flash
+advanced:
+  context_length: 1000000
+  max_build_test_retries: 3
+  max_resolution_retries: 3
+  timeout_minutes: 150
+  fused_pre_red: true
+  fused_resolution: true
+  fused_compact_prompts: true
+  tool_read_cap: 20000
+  tool_bash_cap: 12000

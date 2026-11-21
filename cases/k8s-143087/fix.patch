@@ -1,0 +1,191 @@
+diff --git a/cmd/kubeadm/app/phases/upgrade/staticpods.go b/cmd/kubeadm/app/phases/upgrade/staticpods.go
+index 9058de4c0..88c9ea48e 100644
+--- a/cmd/kubeadm/app/phases/upgrade/staticpods.go
++++ b/cmd/kubeadm/app/phases/upgrade/staticpods.go
+@@ -17,6 +17,7 @@ limitations under the License.
+ package upgrade
+ 
+ import (
++	"context"
+ 	"fmt"
+ 	"os"
+ 	"path/filepath"
+@@ -25,6 +26,7 @@ import (
+ 
+ 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+ 	"k8s.io/apimachinery/pkg/util/version"
++	"k8s.io/apimachinery/pkg/util/wait"
+ 	clientset "k8s.io/client-go/kubernetes"
+ 	"k8s.io/klog/v2"
+ 
+@@ -296,9 +298,30 @@ func performEtcdStaticPodUpgrade(certsRenewMgr *renewal.Manager, client clientse
+ 	// Backing up etcd data store
+ 	backupEtcdDir := pathMgr.BackupEtcdDir()
+ 	runningEtcdDir := cfg.Etcd.Local.DataDir
+-	output, err := filesutil.CopyDir(runningEtcdDir, backupEtcdDir)
++	var (
++		attempt   int
++		lastError error
++	)
++	err = wait.PollUntilContextTimeout(context.Background(), time.Second, 30*time.Second, true,
++		func(_ context.Context) (bool, error) {
++			attempt++
++			klog.V(2).Infof("[upgrade/etcd] Backing up etcd data, attempt %d", attempt)
++			if err := os.RemoveAll(backupEtcdDir); err != nil {
++				lastError = errors.Wrapf(err, "could not clear the etcd backup dir %s", backupEtcdDir)
++				return false, lastError
++			}
++			if err := os.Mkdir(backupEtcdDir, 0700); err != nil {
++				lastError = errors.Wrapf(err, "could not create the etcd backup dir %s", backupEtcdDir)
++				return false, lastError
++			}
++			lastError = filesutil.CopyDir(runningEtcdDir, backupEtcdDir)
++			return lastError == nil, nil
++		})
+ 	if err != nil {
+-		return true, errors.Wrapf(err, "failed to back up etcd data, output: %q", output)
++		if lastError != nil {
++			err = lastError
++		}
++		return true, errors.Wrapf(err, "failed to back up etcd data after %d attempts", attempt)
+ 	}
+ 
+ 	// Get the desired etcd version. That's either the one specified by the user in cfg.Etcd.Local.ImageTag
+@@ -561,10 +584,18 @@ func rollbackEtcdData(cfg *kubeadmapi.InitConfiguration, pathMgr StaticPodPathMa
+ 	backupEtcdDir := pathMgr.BackupEtcdDir()
+ 	runningEtcdDir := cfg.Etcd.Local.DataDir
+ 
+-	output, err := filesutil.CopyDir(backupEtcdDir, runningEtcdDir)
+-	if err != nil {
+-		// Let the user know there we're problems, but we tried to reçover
+-		return errors.Wrapf(err, "couldn't recover etcd database with error, the location of etcd backup: %s, output: %q", backupEtcdDir, output)
++	// Clearing the live member dir is only safe if there is a backup to restore it from.
++	if _, err := os.Stat(filepath.Join(backupEtcdDir, "member")); err != nil {
++		return errors.Wrapf(err, "will not roll back the etcd data dir, no member dir in the etcd backup: %s", backupEtcdDir)
++	}
++
++	// Files etcd wrote after the backup must not survive the rollback.
++	if err := os.RemoveAll(filepath.Join(runningEtcdDir, "member")); err != nil {
++		return errors.Wrapf(err, "could not clear the etcd member dir in %s", runningEtcdDir)
++	}
++
++	if err := filesutil.CopyDir(backupEtcdDir, runningEtcdDir); err != nil {
++		return errors.Wrapf(err, "couldn't recover etcd database with error, the location of etcd backup: %s", backupEtcdDir)
+ 	}
+ 
+ 	return nil
+diff --git a/cmd/kubeadm/app/util/files/copy.go b/cmd/kubeadm/app/util/files/copy.go
+index 6315cccdb..83430d84d 100644
+--- a/cmd/kubeadm/app/util/files/copy.go
++++ b/cmd/kubeadm/app/util/files/copy.go
+@@ -19,7 +19,9 @@ package files
+ 
+ import (
+ 	"io"
++	"io/fs"
+ 	"os"
++	"path/filepath"
+ 	"strings"
+ 
+ 	"k8s.io/klog/v2"
+@@ -55,6 +57,28 @@ func CopyFile(src, dest string) error {
+ 	return err
+ }
+ 
++// CopyDir copies the content of a folder to dest, which is created if needed.
++func CopyDir(src, dest string) error {
++	return filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
++		if err != nil {
++			return err
++		}
++		rel, err := filepath.Rel(src, path)
++		if err != nil {
++			return err
++		}
++		target := filepath.Join(dest, rel)
++		if !d.IsDir() {
++			return CopyFile(path, target)
++		}
++		info, err := d.Info()
++		if err != nil {
++			return err
++		}
++		return os.MkdirAll(target, info.Mode().Perm())
++	})
++}
++
+ // MoveFile moves a file from src to dest.
+ func MoveFile(src, dest string) error {
+ 	err := os.Rename(src, dest)
+diff --git a/cmd/kubeadm/app/util/files/copy_unix.go b/cmd/kubeadm/app/util/files/copy_unix.go
+deleted file mode 100644
+index 1d40f9076..000000000
+--- a/cmd/kubeadm/app/util/files/copy_unix.go
++++ /dev/null
+@@ -1,28 +0,0 @@
+-//go:build !windows
+-
+-/*
+-Copyright 2017 The Kubernetes Authors.
+-
+-Licensed under the Apache License, Version 2.0 (the "License");
+-you may not use this file except in compliance with the License.
+-You may obtain a copy of the License at
+-
+-    http://www.apache.org/licenses/LICENSE-2.0
+-
+-Unless required by applicable law or agreed to in writing, software
+-distributed under the License is distributed on an "AS IS" BASIS,
+-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-See the License for the specific language governing permissions and
+-limitations under the License.
+-*/
+-
+-package files
+-
+-import (
+-	"os/exec"
+-)
+-
+-// CopyDir copies the content of a folder
+-func CopyDir(src string, dst string) ([]byte, error) {
+-	return exec.Command("cp", "-r", src, dst).CombinedOutput()
+-}
+diff --git a/cmd/kubeadm/app/util/files/copy_windows.go b/cmd/kubeadm/app/util/files/copy_windows.go
+deleted file mode 100644
+index 1b2bed75b..000000000
+--- a/cmd/kubeadm/app/util/files/copy_windows.go
++++ /dev/null
+@@ -1,32 +0,0 @@
+-//go:build windows
+-
+-/*
+-Copyright 2022 The Kubernetes Authors.
+-
+-Licensed under the Apache License, Version 2.0 (the "License");
+-you may not use this file except in compliance with the License.
+-You may obtain a copy of the License at
+-
+-    http://www.apache.org/licenses/LICENSE-2.0
+-
+-Unless required by applicable law or agreed to in writing, software
+-distributed under the License is distributed on an "AS IS" BASIS,
+-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-See the License for the specific language governing permissions and
+-limitations under the License.
+-*/
+-
+-package files
+-
+-import (
+-	"os/exec"
+-)
+-
+-// CopyDir copies the content of a folder
+-func CopyDir(src string, dst string) ([]byte, error) {
+-	// /E Copies directories and subdirectories, including empty ones.
+-	// /H Copies hidden and system files also.
+-	// /I Treats a non-existent dst as a directory instead of prompting.
+-	// /Y Overwrites existing files without prompting.
+-	return exec.Command("xcopy", "/E", "/H", "/I", "/Y", src, dst).CombinedOutput()
+-}

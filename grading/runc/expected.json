@@ -1,0 +1,18 @@
+{
+  "case": "runc",
+  "expected_outcome": "success",
+  "human_backport": null,
+  "notes": "runc release/1.2; harness discovers any same-subject backport.",
+  "reference_runs": [
+    {
+      "date": "20261120",
+      "outcome": "success",
+      "wall_s": 5094,
+      "input_tokens": 31219020,
+      "output_tokens": 580940,
+      "audit": "PASS",
+      "model": "deepseek-v41-flash",
+      "reasoning_effort": "medium"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "case": "containerd",
+  "expected_outcome": "success",
+  "human_backport": null,
+  "reference_runs": [
+    {
+      "date": "20261120",
+      "outcome": "success",
+      "wall_s": 605,
+      "input_tokens": 1398350,
+      "output_tokens": 43819,
+      "audit": "PASS",
+      "model": "deepseek-v41-flash",
+      "reasoning_effort": "medium"
+    }
+  ]
+}

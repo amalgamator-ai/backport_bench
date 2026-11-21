@@ -1,0 +1,18 @@
+{
+  "case": "valkey",
+  "expected_outcome": "success",
+  "human_backport": "fdc142c6558071c5009c9ef84ee804a33667b14d",
+  "notes": "fdc142c6558071c5009c9ef84ee804a33667b14d on 8.0",
+  "reference_runs": [
+    {
+      "date": "20261121",
+      "outcome": "success",
+      "wall_s": 753,
+      "input_tokens": 915163,
+      "output_tokens": 51194,
+      "audit": "PASS",
+      "model": "deepseek-v41-flash",
+      "reasoning_effort": "medium"
+    }
+  ]
+}
