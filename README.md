@@ -30,7 +30,7 @@ of the box:
 
 ```bash
 mkdir -p ~/work && cd ~/work
-git clone <amalgamator-repo-url> amalgamator
+git clone https://github.com/amalgamator-ai/amalgamator.git amalgamator
 git clone https://github.com/amalgamator-ai/backport_bench.git
 cd amalgamator && uv sync --extra test --extra dev && cd ..
 ```
