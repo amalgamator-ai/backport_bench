@@ -1,40 +1,50 @@
-issue_id: GO-2025-3487-xcrypto-ssh-kex-queue
-bug_description: |
-  The golang.org/x/crypto/ssh server queues incoming packets that arrive while a key exchange is in
-  progress. A peer can complete the TCP handshake, withhold the KEX packets and keep sending data,
-  growing that internal queue without bound and exhausting server memory (CVE-2025-22869 /
-  GO-2025-3487, SSH denial of service). The upstream fix bounds the number of packets buffered while
-  waiting for the key exchange, fails the connection when a peer exceeds the limit, and adds
-  regression tests in ssh/handshake_test.go. The backport must apply the same protection to the
-  v0.33.0 release, whose ssh handshake code predates the fix.
-repository:
-  source_path: ${BACKPORT_REPOS}/repo.git
-  workdir: ${BACKPORT_WORK}
-branches:
-  source: master
-  targets:
-  - v0.33.0
-fix:
-  commit: 7292932d45d55c7199324ab0027cc86e8198aa22
-build:
-  command: |-
-    export PATH=/usr/local/go/bin:$PATH
-    export GOFLAGS=-mod=mod GOPROXY=off GOSUMDB=off GOMODCACHE=/opt/gomodcache
-    export GOCACHE="$PWD/.gocache" GOTMPDIR="$PWD/.gotmp" TMPDIR="$PWD/.tmp"
-    mkdir -p "$GOCACHE" "$GOTMPDIR" "$TMPDIR"
-    go build ./ssh/...
-  test_command: |-
-    export PATH=/usr/local/go/bin:$PATH
-    export GOFLAGS=-mod=mod GOPROXY=off GOSUMDB=off GOMODCACHE=/opt/gomodcache
-    export GOCACHE="$PWD/.gocache" GOTMPDIR="$PWD/.gotmp" TMPDIR="$PWD/.tmp"
-    mkdir -p "$GOCACHE" "$GOTMPDIR" "$TMPDIR"
-    go test -count=1 ./ssh
-advanced:
-  timeout_minutes: 45
-  fused_pre_red: true
-  fused_resolution: true
-  fused_compact_prompts: true
-  tool_read_cap: 20000
-  tool_bash_cap: 12000
-  context_length: 1000000
-model: deepseek-v41-flash
+# Single source of truth for this benchmark case.
+# bench:    refs, fix and forbidden human backports; never mounted into a run.
+# pipeline: rendered into cases/<case>/run/case.yaml and mounted at /case.
+bench:
+  upstream: https://github.com/golang/crypto.git
+  difficulty: medium
+  source:
+    branch: master
+    sha: 7292932d45d55c7199324ab0027cc86e8198aa22
+    depth: 2
+  target:
+    branch: v0.33.0
+    sha: 9290511cd23ab9813a307b7f2615325e3ca98902
+    depth: 1
+  fix:
+    kind: commit
+    sha: 7292932d45d55c7199324ab0027cc86e8198aa22
+  forbidden: []
+pipeline:
+  issue_id: GO-2025-3487-xcrypto-ssh-kex-queue
+  bug_description: |
+    The golang.org/x/crypto/ssh server queues incoming packets that arrive while a key exchange is in
+    progress. A peer can complete the TCP handshake, withhold the KEX packets and keep sending data,
+    growing that internal queue without bound and exhausting server memory (CVE-2025-22869 /
+    GO-2025-3487, SSH denial of service). The upstream fix bounds the number of packets buffered while
+    waiting for the key exchange, fails the connection when a peer exceeds the limit, and adds
+    regression tests in ssh/handshake_test.go. The backport must apply the same protection to the
+    v0.33.0 release, whose ssh handshake code predates the fix.
+  build:
+    command: |-
+      export PATH=/usr/local/go/bin:$PATH
+      export GOFLAGS=-mod=mod GOPROXY=off GOSUMDB=off GOMODCACHE=/opt/gomodcache
+      export GOCACHE="$PWD/.gocache" GOTMPDIR="$PWD/.gotmp" TMPDIR="$PWD/.tmp"
+      mkdir -p "$GOCACHE" "$GOTMPDIR" "$TMPDIR"
+      go build ./ssh/...
+    test_command: |-
+      export PATH=/usr/local/go/bin:$PATH
+      export GOFLAGS=-mod=mod GOPROXY=off GOSUMDB=off GOMODCACHE=/opt/gomodcache
+      export GOCACHE="$PWD/.gocache" GOTMPDIR="$PWD/.gotmp" TMPDIR="$PWD/.tmp"
+      mkdir -p "$GOCACHE" "$GOTMPDIR" "$TMPDIR"
+      go test -count=1 ./ssh
+  advanced:
+    timeout_minutes: 45
+    fused_pre_red: true
+    fused_resolution: true
+    fused_compact_prompts: true
+    tool_read_cap: 20000
+    tool_bash_cap: 12000
+    context_length: 1000000
+  model: deepseek-v41-flash

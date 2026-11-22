@@ -1,7 +1,8 @@
 cache/
-results/
-models/models.local.yaml
 cases/*/repo.git
-__pycache__/
-.podman/
+cases/*/run/
 images.lock.json
+models/models.local.yaml
+.podman/
+__pycache__/
+results/

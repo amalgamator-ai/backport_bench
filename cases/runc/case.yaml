@@ -1,45 +1,50 @@
-issue_id: CVE-2025-31133-31134-31135-runc-1.2
-bug_description: "runc, the OCI container runtime used by Docker and Kubernetes, published a coordinated\
-  \ security release for three container-escape vulnerabilities in the 1.2 release line:\n* CVE-2025-31133\
-  \ (high): a container can abuse mount races on OCI\n  maskedPaths. runc masks files by bind-mounting\
-  \ /dev/null over them and\n  directories with a read-only tmpfs; a process in the container can race\
-  \ the\n  mount setup, unmount or replace the mask, and then read or write host paths\n  that the mask\
-  \ was meant to protect.\n* CVE-2025-31134 (high): runc leaked host file descriptors through\n  /proc/self/exe\
-  \ and /proc/self/fd, allowing a container process to reach\n  host files and escalate outside the container.\n\
-  * CVE-2025-31135 (high): runc's /dev/pts/ptmx and /dev/console handling could\n  be redirected to host\
-  \ PTYs, permitting a container escape.\n\nThe upstream fix is a coordinated hardening of the runtime:\
-  \ fd-based handling of mountpoint targets, safe procfs/securejoin access to /proc/self/*, verification\
-  \ of /dev/pts/ptmx and /dev/console, a pathrs-lite vendor update, and safe SELinux/AppArmor label handling.\
-  \ It replaces the symlink/race-prone path operations with descriptor-based checks, adds an internal\
-  \ path-safety helper and an inode-verification helper, and updates the vendored pathrs/selinux code.\
-  \ The backport must preserve the security behaviour on the 1.2 branch, whose runtime, vendor and test\
-  \ trees have diverged from main.\n"
-repository:
-  source_path: ${BACKPORT_REPOS}/repo.git
-  workdir: ${BACKPORT_WORK}
-branches:
-  source: main
-  target: release/1.2
-fix:
-  commit: 2f74f4ae1b483b3a4d197f574a37c7b768baf96f
-build:
-  command: export PATH=/usr/local/go/bin:$PATH; export CGO_ENABLED=1 GOFLAGS=-mod=vendor GOPROXY=off;
-    export GOCACHE="$PWD/.gocache" GOTMPDIR="$PWD/.gotmp" TMPDIR="$PWD/.tmp"; mkdir -p "$GOCACHE" "$GOTMPDIR"
-    "$TMPDIR"; pkgs=$(go list ./libcontainer/... | grep -v '/nsenter$'); go build -tags 'urfave_cli_no_docs'
-    ./ ./internal/... $pkgs
-  test_command: export PATH=/usr/local/go/bin:$PATH; export CGO_ENABLED=1 GOFLAGS=-mod=vendor
-    GOPROXY=off; export GOCACHE="$PWD/.gocache" GOTMPDIR="$PWD/.gotmp" TMPDIR="$PWD/.tmp"; mkdir -p "$GOCACHE"
-    "$GOTMPDIR" "$TMPDIR"; go test -tags 'urfave_cli_no_docs' -count=1 ./internal/pathrs -run '^TestIsLexicallyInRoot$'
-    && go test -tags 'urfave_cli_no_docs' -count=1 ./libcontainer/utils && go test -tags 'urfave_cli_no_docs'
-    -count=1 ./libcontainer/internal/userns
-model: deepseek-v41-flash
-advanced:
-  context_length: 1000000
-  timeout_minutes: 90
-  max_build_test_retries: 3
-  max_resolution_retries: 1
-  fused_resolution: true
-  fused_pre_red: true
-  fused_compact_prompts: true
-  tool_read_cap: 20000
-  tool_bash_cap: 12000
+# Single source of truth for this benchmark case.
+# bench:    refs, fix and forbidden human backports; never mounted into a run.
+# pipeline: rendered into cases/<case>/run/case.yaml and mounted at /case.
+bench:
+  upstream: https://github.com/opencontainers/runc.git
+  difficulty: hard
+  source:
+    branch: main
+    sha: 2f74f4ae1b483b3a4d197f574a37c7b768baf96f
+    depth: 2
+  target:
+    branch: release/1.2
+    sha: 2462b68fa2d6618480e6a4f615661ee6e762d13a
+    depth: 1
+    upstream_branch: release-1.2
+  fix:
+    kind: commit
+    sha: 2f74f4ae1b483b3a4d197f574a37c7b768baf96f
+  forbidden:
+  - cdee962c391af84a922252c283bd065e5cabb34b
+pipeline:
+  issue_id: CVE-2025-31133-31134-31135-runc-1.2
+  bug_description: |
+    runc, the OCI container runtime used by Docker and Kubernetes, published a coordinated security release for three container-escape vulnerabilities in the 1.2 release line:
+    * CVE-2025-31133 (high): a container can abuse mount races on OCI
+      maskedPaths. runc masks files by bind-mounting /dev/null over them and
+      directories with a read-only tmpfs; a process in the container can race the
+      mount setup, unmount or replace the mask, and then read or write host paths
+      that the mask was meant to protect.
+    * CVE-2025-31134 (high): runc leaked host file descriptors through
+      /proc/self/exe and /proc/self/fd, allowing a container process to reach
+      host files and escalate outside the container.
+    * CVE-2025-31135 (high): runc's /dev/pts/ptmx and /dev/console handling could
+      be redirected to host PTYs, permitting a container escape.
+
+    The upstream fix is a coordinated hardening of the runtime: fd-based handling of mountpoint targets, safe procfs/securejoin access to /proc/self/*, verification of /dev/pts/ptmx and /dev/console, a pathrs-lite vendor update, and safe SELinux/AppArmor label handling. It replaces the symlink/race-prone path operations with descriptor-based checks, adds an internal path-safety helper and an inode-verification helper, and updates the vendored pathrs/selinux code. The backport must preserve the security behaviour on the 1.2 branch, whose runtime, vendor and test trees have diverged from main.
+  build:
+    command: export PATH=/usr/local/go/bin:$PATH; export CGO_ENABLED=1 GOFLAGS=-mod=vendor GOPROXY=off; export GOCACHE="$PWD/.gocache" GOTMPDIR="$PWD/.gotmp" TMPDIR="$PWD/.tmp"; mkdir -p "$GOCACHE" "$GOTMPDIR" "$TMPDIR"; pkgs=$(go list ./libcontainer/... | grep -v '/nsenter$'); go build -tags 'urfave_cli_no_docs' ./ ./internal/... $pkgs
+    test_command: export PATH=/usr/local/go/bin:$PATH; export CGO_ENABLED=1 GOFLAGS=-mod=vendor GOPROXY=off; export GOCACHE="$PWD/.gocache" GOTMPDIR="$PWD/.gotmp" TMPDIR="$PWD/.tmp"; mkdir -p "$GOCACHE" "$GOTMPDIR" "$TMPDIR"; go test -tags 'urfave_cli_no_docs' -count=1 ./internal/pathrs -run '^TestIsLexicallyInRoot$' && go test -tags 'urfave_cli_no_docs' -count=1 ./libcontainer/utils && go test -tags 'urfave_cli_no_docs' -count=1 ./libcontainer/internal/userns
+  model: deepseek-v41-flash
+  advanced:
+    context_length: 1000000
+    timeout_minutes: 90
+    max_build_test_retries: 3
+    max_resolution_retries: 1
+    fused_resolution: true
+    fused_pre_red: true
+    fused_compact_prompts: true
+    tool_read_cap: 20000
+    tool_bash_cap: 12000

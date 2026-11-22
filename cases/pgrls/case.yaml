@@ -1,35 +1,36 @@
-issue_id: PG-2026-11-view-row-visibility
-bug_description: 'An automatically updatable view''s WHERE condition restricts the rows that an UPDATE,
-  DELETE or MERGE through the view can affect to those visible through it. INSERT ... ON CONFLICT DO UPDATE
-  through such a view did not follow this rule: the conflicting row is found through the arbiter index
-  rather than by scanning the view, and the view''s WHERE condition was never applied to it. A user whose
-  privileges on a view allow an upsert through it, but who holds none on its base relation, could modify
-  (and read) every row the view hides, one at a time, by guessing their keys. The fix makes rewriteTargetView()
-  emit the view''s WHERE quals as a WithCheckOption of a new kind (WCO_VIEW_CONFLICT_CHECK), which ExecOnConflictUpdate()
-  and ExecOnConflictSelect() check against the conflicting row, innermost view first and before the ON
-  CONFLICT WHERE clause is evaluated. It also updates the documentation and adds regression tests in the
-  rowsecurity and updatable_views suites.
-
-  '
-repository:
-  source_path: ${BACKPORT_REPOS}/repo.git
-  workdir: ${BACKPORT_WORK}
-branches:
-  source: master
-  targets:
-  - eval/REL_14_STABLE
-fix:
-  commit: 315c4e4e85f3fae5ebc3a62d69b5400138d307f9
-build:
-  command: export PATH=/usr/bin:$PATH; ([ -f configure ] || ./configure --without-readline
-    --without-zlib) && make -j$(nproc)
-  test_command: make check
-advanced:
-  timeout_minutes: 60
-  fused_pre_red: true
-  fused_resolution: true
-  fused_compact_prompts: true
-  tool_read_cap: 20000
-  tool_bash_cap: 12000
-  context_length: 1000000
-model: deepseek-v41-flash
+# Single source of truth for this benchmark case.
+# bench:    refs, fix and forbidden human backports; never mounted into a run.
+# pipeline: rendered into cases/<case>/run/case.yaml and mounted at /case.
+bench:
+  upstream: https://github.com/postgres/postgres.git
+  difficulty: hard
+  source:
+    branch: master
+    sha: 315c4e4e85f3fae5ebc3a62d69b5400138d307f9
+    depth: 2
+  target:
+    branch: eval/REL_14_STABLE
+    sha: 9fe1c78135f44c3c16c18d4aee305ec83fbc0c56
+    depth: 1
+    upstream_branch: REL_14_STABLE
+  fix:
+    kind: commit
+    sha: 315c4e4e85f3fae5ebc3a62d69b5400138d307f9
+  forbidden:
+  - 4167810cfe62d5ed4cf70a576a2eed87e2f246a8
+pipeline:
+  issue_id: PG-2026-11-view-row-visibility
+  bug_description: |
+    An automatically updatable view's WHERE condition restricts the rows that an UPDATE, DELETE or MERGE through the view can affect to those visible through it. INSERT ... ON CONFLICT DO UPDATE through such a view did not follow this rule: the conflicting row is found through the arbiter index rather than by scanning the view, and the view's WHERE condition was never applied to it. A user whose privileges on a view allow an upsert through it, but who holds none on its base relation, could modify (and read) every row the view hides, one at a time, by guessing their keys. The fix makes rewriteTargetView() emit the view's WHERE quals as a WithCheckOption of a new kind (WCO_VIEW_CONFLICT_CHECK), which ExecOnConflictUpdate() and ExecOnConflictSelect() check against the conflicting row, innermost view first and before the ON CONFLICT WHERE clause is evaluated. It also updates the documentation and adds regression tests in the rowsecurity and updatable_views suites.
+  build:
+    command: export PATH=/usr/bin:$PATH; ([ -f configure ] || ./configure --without-readline --without-zlib) && make -j$(nproc)
+    test_command: make check
+  advanced:
+    timeout_minutes: 60
+    fused_pre_red: true
+    fused_resolution: true
+    fused_compact_prompts: true
+    tool_read_cap: 20000
+    tool_bash_cap: 12000
+    context_length: 1000000
+  model: deepseek-v41-flash

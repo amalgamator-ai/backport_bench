@@ -9,18 +9,24 @@ see it locally and cannot fetch it from the network.
 ## Layout
 
 ```
-refs/cases.json          public upstream URL + pinned SHAs per case
-cases/<name>/case.yaml   pipeline config (image paths)
+cases/<name>/case.yaml   single config: bench: (refs, fix, forbidden backports)
+                         and pipeline: (issue, build/test, advanced, model)
+cases/<name>/run/        generated from case.yaml; the only directory mounted (gitignored)
 cases/<name>/check-prereqs.sh  checks run inside the case image
 cases/<name>/Containerfile     per-case image build (FROM a shared base)
 cases/<name>/repo.git    sanitized pack, built from public refs (gitignored)
 cases/<name>/fix.patch   fix as a patch (patch-mode cases only)
-scripts/                 images, build, verify, run, audit, summarize
+scripts/                 images, build, verify, render, run, audit, summarize
 models/                  registry template; models.local.yaml is yours (gitignored)
 grading/<name>/          human fix + reference numbers (never mounted)
 results/                 run artifacts (gitignored)
 cache/                   full upstream mirrors, one per repo (gitignored)
 ```
+
+`scripts/render-case.sh <name>` regenerates `cases/<name>/run/`: the pipeline
+section with `repository`, `branches` and `fix` derived from `bench`, plus
+`fix.patch` for patch-mode cases. It refuses to emit if a forbidden SHA, the
+upstream URL or the target cut SHA would appear in the output.
 
 ## Install and setup
 
@@ -105,12 +111,15 @@ sanitized pack: only the source ref (at the fix commit) and the target ref (at
 the pre-fix cut), full history so the pipeline has a real merge-base, no
 remotes, tags, reflogs or unreachable objects. It then runs the leak check:
 
-- the human backport commit must not exist in the pack at all;
-- no ref other than the two case refs;
+- every ref sits exactly at its pinned public commit;
+- the human backport commits listed in `bench.forbidden` must not exist in the
+  pack at all, and build-time discovery fails the case if it finds a
+  same-subject backport that is not listed there;
+- no ref other than the case refs;
 - the fix must not be an ancestor of the target;
 - no unreachable objects (so `git fsck --lost-found` finds nothing).
 
-A failing check aborts the case.
+A failing check aborts the case. The target tree hash is printed in the log.
 
 ### 6. Check the environment
 
@@ -137,9 +146,9 @@ Each run happens in that case's own container:
 - image: `localhost/bench/<case>:1`, whose only content is public toolchains;
   the project, pack, grading data and results are never part of the image;
 - filesystem: read-only root, with only the sanitized pack copy, a fresh
-  workspace, the amalgamator checkout, the case config, the model registry and
-  the model socket mounted; `grading/`, `cache/`, `results/` and `$HOME` are
-  not visible;
+  workspace, the amalgamator checkout, the rendered case input at
+  `cases/<case>/run`, the model registry and the model socket mounted;
+  `grading/`, `cache/`, `results/` and `$HOME` are not visible;
 - network: `--network=none`; the model is reached through a Unix socket to a
   host-side TLS pass-through proxy, so no upstream host or DNS is reachable;
 - after the run, `audit-run.sh` scans the transcript for `git fetch`, `curl`,
@@ -203,19 +212,20 @@ when building the two bases.
 
 1. Find the public fix commit and the target branch commit before the human
    backport (or before the fix).
-2. Add an entry to `refs/cases.json` (URL, source/target SHA, fix kind,
-   optional `target.upstream_branch` for discovery).
-3. Create `cases/<name>/case.yaml` with the container paths
-   (`${BACKPORT_REPOS}/repo.git`, `${BACKPORT_WORK}`) and build/test commands
-   that use image paths only.
-4. Add `cases/<name>/check-prereqs.sh` (runs inside the image; exit non-zero
+2. Create `cases/<name>/case.yaml` with a `bench:` section (upstream URL,
+   source/target SHA, fix kind, optional `target.upstream_branch` and
+   `forbidden` human-backport SHAs) and a `pipeline:` section (issue id,
+   description, build/test commands using image paths only, advanced flags).
+   Do not repeat repository, branch or fix fields there — they are derived.
+3. Add `cases/<name>/check-prereqs.sh` (runs inside the image; exit non-zero
    and print `missing: ...` when a tool is absent).
-5. Add `cases/<name>/Containerfile` (`FROM localhost/bench-tools:1` or
+4. Add `cases/<name>/Containerfile` (`FROM localhost/bench-tools:1` or
    `bench-go:1`, copy and run `check-prereqs.sh`) and a `.containerignore`
    that keeps the pack and case data out of the build context.
-6. `./scripts/build-case.sh <name>` and fix anything the leak check reports.
-7. `./scripts/build-images.sh <name>` and `./scripts/check-prereqs.sh <name>`.
-8. `./scripts/run-case.sh <name>`; record reference numbers in `grading/`.
+5. `./scripts/build-case.sh <name>` — builds the pack and lock, runs the leak
+   check and renders `cases/<name>/run/`.
+6. `./scripts/build-images.sh <name>` and `./scripts/check-prereqs.sh <name>`.
+7. `./scripts/run-case.sh <name>`; record reference numbers in `grading/`.
 
 Cases share the `bench-tools` or `bench-go` base; add steps to the case's
 Containerfile only when it requires extra packages (that build step then needs

@@ -1,40 +1,54 @@
-issue_id: CVE-2024-12718-2025-4517-cpython-tarfile
-bug_description: |
-  CPython's tarfile module applies extraction filters to block path traversal, but four related
-  bypasses were found in the 3.12-3.13 tarfile extraction code: link targets were not normalized, the
-  tar/data filter was not re-applied when tarfile falls back from a link to copying another member or
-  when fixing up directory attributes, an attacker could chain individually path-length-limited links
-  so that the expanded target escaped the extraction directory (CVE-2024-12718, CVE-2025-4138,
-  CVE-2025-4330, CVE-2025-4517), and chmod/attribute fixups could be performed on directories that had
-  been replaced or removed. The upstream fix normalizes symlink/hardlink targets in tarfile, adds an
-  os.path.realpath(strict='allow_missing') mode so a missing leaf can be resolved without following
-  symlinks (with os.path.ALLOW_MISSING), guards the deferred directory-attribute updates and member
-  fallbacks with the extraction filter, and stops extracting rejected members at errorlevel=0. It also
-  adds many regression tests to test_tarfile, test_posixpath and test_ntpath. The backport must port
-  the fix to the 3.12 branch, whose posixpath realpath implementation predates the one on main and
-  whose tarfile code has diverged.
-repository:
-  source_path: ${BACKPORT_REPOS}/repo.git
-  workdir: ${BACKPORT_WORK}
-branches:
-  source: main
-  targets:
-  - '3.12'
-fix:
-  commit: 3612d8f51741b11f36f8fb0494d79086bac9390a
-build:
-  command: |-
-    ./configure --with-ensurepip=no
-    make -j$(nproc)
-  test_command: |-
-    gcc -shared -fPIC -o /tmp/sandbox_fakechown.so /case/sandbox_fakechown.c
-    LD_PRELOAD=/tmp/sandbox_fakechown.so ./python -m test test_tarfile test_posixpath test_ntpath
-advanced:
-  timeout_minutes: 90
-  fused_pre_red: true
-  fused_resolution: true
-  fused_compact_prompts: true
-  tool_read_cap: 20000
-  tool_bash_cap: 12000
-  context_length: 1000000
-model: deepseek-v41-flash
+# Single source of truth for this benchmark case.
+# bench:    refs, fix and forbidden human backports; never mounted into a run.
+# pipeline: rendered into cases/<case>/run/case.yaml and mounted at /case.
+bench:
+  upstream: https://github.com/python/cpython.git
+  difficulty: extreme
+  source:
+    branch: main
+    sha: 3612d8f51741b11f36f8fb0494d79086bac9390a
+    depth: 2
+  target:
+    branch: '3.12'
+    sha: f3272d863004e291ab00620e71dee1cfa0fc9f83
+    depth: 1
+    upstream_branch: '3.12'
+  fix:
+    kind: commit
+    sha: 3612d8f51741b11f36f8fb0494d79086bac9390a
+  forbidden:
+  - 19de092debb3d7e832e5672cc2f7b788d35951da
+  - aa9eb5f757ceff461e6e996f12c89e5d9b583b01
+  - 4633f3f497b1ff70e4a35b6fe2c907cbe2d4cb2e
+pipeline:
+  issue_id: CVE-2024-12718-2025-4517-cpython-tarfile
+  bug_description: |
+    CPython's tarfile module applies extraction filters to block path traversal, but four related
+    bypasses were found in the 3.12-3.13 tarfile extraction code: link targets were not normalized, the
+    tar/data filter was not re-applied when tarfile falls back from a link to copying another member or
+    when fixing up directory attributes, an attacker could chain individually path-length-limited links
+    so that the expanded target escaped the extraction directory (CVE-2024-12718, CVE-2025-4138,
+    CVE-2025-4330, CVE-2025-4517), and chmod/attribute fixups could be performed on directories that had
+    been replaced or removed. The upstream fix normalizes symlink/hardlink targets in tarfile, adds an
+    os.path.realpath(strict='allow_missing') mode so a missing leaf can be resolved without following
+    symlinks (with os.path.ALLOW_MISSING), guards the deferred directory-attribute updates and member
+    fallbacks with the extraction filter, and stops extracting rejected members at errorlevel=0. It also
+    adds many regression tests to test_tarfile, test_posixpath and test_ntpath. The backport must port
+    the fix to the 3.12 branch, whose posixpath realpath implementation predates the one on main and
+    whose tarfile code has diverged.
+  build:
+    command: |-
+      ./configure --with-ensurepip=no
+      make -j$(nproc)
+    test_command: |-
+      gcc -shared -fPIC -o /tmp/sandbox_fakechown.so /case/sandbox_fakechown.c
+      LD_PRELOAD=/tmp/sandbox_fakechown.so ./python -m test test_tarfile test_posixpath test_ntpath
+  advanced:
+    timeout_minutes: 90
+    fused_pre_red: true
+    fused_resolution: true
+    fused_compact_prompts: true
+    tool_read_cap: 20000
+    tool_bash_cap: 12000
+    context_length: 1000000
+  model: deepseek-v41-flash

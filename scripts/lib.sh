@@ -12,16 +12,11 @@ export TOOLCHAINS
 log() { printf '%s %s\n' "$(date +%H:%M:%S)" "$*" >&2; }
 die() { log "ERROR: $*"; exit 1; }
 
-ref() { python3 "$BENCH_DIR/scripts/refs.py" get "$1" "$2"; }
-ref_opt() { python3 "$BENCH_DIR/scripts/refs.py" get "$1" "$2" 2>/dev/null || true; }
+ref() { python3 "$BENCH_DIR/scripts/case_config.py" get "$1" "$2"; }
+ref_opt() { python3 "$BENCH_DIR/scripts/case_config.py" get-opt "$1" "$2" 2>/dev/null || true; }
 
 case_names() {
-  python3 - "$BENCH_DIR/refs/cases.json" <<'PY'
-import json, sys
-data = json.load(open(sys.argv[1]))["cases"]
-for name in data:
-    print(name)
-PY
+  python3 "$BENCH_DIR/scripts/case_config.py" list
 }
 
 require_case() {

@@ -1,16 +1,16 @@
 # Provenance and licenses
 
 All inputs come from public repositories. Packs are built by
-`scripts/build-case.sh` by fetching the pinned commits listed in
-`refs/cases.json`; nothing is vendored here.
+`scripts/build-case.sh` by fetching the commits pinned in the `bench:` section
+of `cases/<case>/case.yaml`; nothing is vendored here.
 
 | case | upstream | license | fix commit | human backport (excluded) |
 |---|---|---|---|---|
-| runc | https://github.com/opencontainers/runc | Apache-2.0 | 2f74f4ae… | discovered per build |
+| runc | https://github.com/opencontainers/runc | Apache-2.0 | 2f74f4ae… | cdee962c (release/1.2) |
 | containerd | https://github.com/containerd/containerd | Apache-2.0 | 0ec1af4c… | discovered per build |
-| postgres-15742 | https://github.com/postgres/postgres | PostgreSQL | 918683d1… | discovered per build |
+| postgres-15742 | https://github.com/postgres/postgres | PostgreSQL | 918683d1… | 9505175f (REL_14_STABLE) |
 | k8s-2270 | https://github.com/kubernetes/kubernetes | Apache-2.0 | a1d21b1a… | discovered per build |
-| k8s-143087 | https://github.com/kubernetes/kubernetes | Apache-2.0 | patch (PR #143087) | 53f77f1 (release-1.35) |
+| k8s-143087 | https://github.com/kubernetes/kubernetes | Apache-2.0 | patch (PR #143087) | 53f77f1d (release-1.35) |
 | glibc | https://github.com/bminor/glibc | LGPL-2.1+ | c9188d33… | f18446d7 (release/2.31/master) |
 | php81/82/83 | https://github.com/php/php-src | PHP-3.01 | 3584a98b… | merge chain into each branch |
 | pgrls | https://github.com/postgres/postgres | PostgreSQL | 315c4e4e… | 4167810 (REL_14_STABLE) |
@@ -31,9 +31,9 @@ unprivileged container uid/gid mappings without altering project code or the
 files the tests compare.
 
 For target branch commits that are non-upstream names (`eval/...` in the
-original benchmark), `refs/cases.json` records the real upstream branch under
-`target.upstream_branch`; the pack creates the case-local branch name at the
-pinned public SHA.
+original benchmark), `bench.target.upstream_branch` in `cases/<case>/case.yaml`
+records the real upstream branch; the pack creates the case-local branch name at
+the pinned public SHA.
 
 The fixture builder previously re-created several commits (author
 `Backport Bench`/`Kubernetes Backport Test`) to compact history. This suite

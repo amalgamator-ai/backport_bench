@@ -35,6 +35,11 @@ mkdir -p "$RESULTS/.locks"
 exec 9>"$lock"
 flock -n 9 || die "[$case] another run of this case is active (see $lock)"
 
+# Only cases/<case>/run/ is mounted into the container. Render it from
+# cases/<case>/case.yaml and verify no bench-only value slipped in.
+python3 "$BENCH_DIR/scripts/case_config.py" render "$case" >/dev/null
+python3 "$BENCH_DIR/scripts/case_config.py" check-render "$case"
+
 python3 "$BENCH_DIR/scripts/refs.py" registry "$MODEL_REGISTRY" "$run/models.yaml"
 endpoint="$(python3 "$BENCH_DIR/scripts/refs.py" host "$MODEL_REGISTRY")"
 printf '127.0.0.1 %s\n' "$endpoint" > "$run/hosts"
@@ -64,7 +69,7 @@ set +e
   --read-only --tmpfs /tmp --tmpfs /run \
   -v "$run:/work:rw" \
   -v "$AMALGAMATOR:/app:ro" \
-  -v "$BENCH_DIR/cases/$case:/case:ro" \
+  -v "$BENCH_DIR/cases/$case/run:/case:ro" \
   -v "$run/models.yaml:/models.yaml:ro" \
   -v "$run/tools:/tools:ro" \
   -v "$run/hosts:/etc/hosts:ro" \

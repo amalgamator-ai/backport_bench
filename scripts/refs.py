@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 """Small helpers for the shell scripts: read case refs and registries."""
-import json
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+
+import case_config  # noqa: E402
 
 
 def refs(case, dotted):
-    data = json.loads((ROOT / "refs/cases.json").read_text())["cases"][case]
-    value = data
-    for part in dotted.split("."):
-        value = value[part]
-    return value
+    return case_config.get(case, dotted)
 
 
 def registry_host(path):

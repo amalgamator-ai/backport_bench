@@ -11,11 +11,8 @@ out="$run/audit.json"
 
 upstream="$(ref "$case" upstream)"
 host="${upstream#*://}"; host="${host%%/*}"
-forbidden="$(python3 - "$BENCH_DIR/cases/$case/case.lock.json" <<'PY'
-import json, sys
-print(" ".join(s for s in json.load(open(sys.argv[1])).get("forbidden", []) if len(s) == 40))
-PY
-)"
+forbidden="$(python3 "$BENCH_DIR/scripts/case_config.py" bench-json "$case" \
+  | python3 -c 'import json,sys; print(" ".join(json.load(sys.stdin).get("forbidden") or []))')"
 
 python3 - "$logf" "$out" "$host" "$forbidden" "$run" "$case" <<'PY'
 import json, re, sys

@@ -1,26 +1,38 @@
-issue_id: GLIBC-2026-11-memalign-overflow
-bug_description: |
-  CVE-2026-0861 / BZ #33796. When glibc capped valid allocation sizes to PTRDIFF_MAX it inadvertently dropped the overflow check for the alignment argument in the memalign family. In _int_memalign, a caller-supplied alignment is added to the already-padded chunk size (nb + alignment + MINSIZE), which can wrap for very large alignments. memalign, posix_memalign and aligned_alloc can then return a chunk that is far too small (or corrupt the heap) instead of failing with ENOMEM. The upstream fix reinstates the alignment check in _int_memalign by rejecting alignment > PTRDIFF_MAX, and extends malloc/tst-malloc-too-large.c to test every alignment up to integer wrap instead of stopping at the page size.
-repository:
-  source_path: ${BACKPORT_REPOS}/repo.git
-  workdir: ${BACKPORT_WORK}
-branches:
-  source: master
-  targets:
-  - eval/glibc-2.31
-fix:
-  commit: c9188d333717d3ceb7e3020011651f424f749f93
-build:
-  command: |
-    export PATH=/usr/bin:$PATH; mkdir -p build && cd build && ([ -f config.status ] || ../configure --prefix="$PWD/install" --disable-werror --without-selinux) && make -j$(nproc) > make.log 2>&1; rc=$?; if [ "$rc" -ne 0 ] && ! grep -q 'undefined reference to .xdecrypt.' make.log; then tail -40 make.log; exit "$rc"; fi
-  test_command: |
-    cd build && rm -f malloc/tst-malloc-too-large && make -C . subdirs=malloc tests -k CFLAGS-tst-malloc-too-large.c=-O0 > tests.log 2>&1; ./testrun.sh malloc/tst-malloc-too-large
-advanced:
-  timeout_minutes: 90
-  fused_pre_red: true
-  fused_resolution: true
-  fused_compact_prompts: true
-  tool_read_cap: 20000
-  tool_bash_cap: 12000
-  context_length: 1000000
-model: deepseek-v41-flash
+# Single source of truth for this benchmark case.
+# bench:    refs, fix and forbidden human backports; never mounted into a run.
+# pipeline: rendered into cases/<case>/run/case.yaml and mounted at /case.
+bench:
+  upstream: https://github.com/bminor/glibc.git
+  difficulty: hard
+  source:
+    branch: master
+    sha: c9188d333717d3ceb7e3020011651f424f749f93
+    depth: 2
+  target:
+    branch: eval/glibc-2.31
+    sha: 831299deb7618c86a0d5dec5e67dae05dfb98f05
+    depth: 1
+    upstream_branch: release/2.31/master
+  fix:
+    kind: commit
+    sha: c9188d333717d3ceb7e3020011651f424f749f93
+  forbidden:
+  - f18446d7b4a423090ee5e328c36b3c2a0f26041c
+pipeline:
+  issue_id: GLIBC-2026-11-memalign-overflow
+  bug_description: |
+    CVE-2026-0861 / BZ #33796. When glibc capped valid allocation sizes to PTRDIFF_MAX it inadvertently dropped the overflow check for the alignment argument in the memalign family. In _int_memalign, a caller-supplied alignment is added to the already-padded chunk size (nb + alignment + MINSIZE), which can wrap for very large alignments. memalign, posix_memalign and aligned_alloc can then return a chunk that is far too small (or corrupt the heap) instead of failing with ENOMEM. The upstream fix reinstates the alignment check in _int_memalign by rejecting alignment > PTRDIFF_MAX, and extends malloc/tst-malloc-too-large.c to test every alignment up to integer wrap instead of stopping at the page size.
+  build:
+    command: |
+      export PATH=/usr/bin:$PATH; mkdir -p build && cd build && ([ -f config.status ] || ../configure --prefix="$PWD/install" --disable-werror --without-selinux) && make -j$(nproc) > make.log 2>&1; rc=$?; if [ "$rc" -ne 0 ] && ! grep -q 'undefined reference to .xdecrypt.' make.log; then tail -40 make.log; exit "$rc"; fi
+    test_command: |
+      cd build && rm -f malloc/tst-malloc-too-large && make -C . subdirs=malloc tests -k CFLAGS-tst-malloc-too-large.c=-O0 > tests.log 2>&1; ./testrun.sh malloc/tst-malloc-too-large
+  advanced:
+    timeout_minutes: 90
+    fused_pre_red: true
+    fused_resolution: true
+    fused_compact_prompts: true
+    tool_read_cap: 20000
+    tool_bash_cap: 12000
+    context_length: 1000000
+  model: deepseek-v41-flash

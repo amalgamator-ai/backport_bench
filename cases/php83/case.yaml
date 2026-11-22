@@ -1,40 +1,35 @@
-issue_id: GHSA-w8hw-6wmf-PHP-8.3
-bug_description: 'PHP uses longjmp()-based bailout (zend_bailout) to abort the current context on fatal
-  errors such as memory exhaustion. In some contexts, request memory and engine state (call frames, hashtables,
-  observer state, globals) are left in an invalid state when a bailout fires mid-operation; code that
-  runs afterwards during request shutdown may read or branch on that corrupted state, which can be leveraged
-  for remote code execution (GHSA-w8hw-w9fx-j79w, CVE-2026-109618). Additionally, various global state
-  retained by a worker process can point to memory owned by a previous request; operations that run before
-  the next request''s normal initialization can consume that stale state, causing a use-after-free that
-  can also be leveraged for remote code execution (GHSA-6wmf-4rv5-p3rp, CVE-2026-109619). The fix on master
-  replaces bailout on out-of-memory with an UnwindExit-based mechanism across the engine and extensions,
-  properly resets various globals that may be accessed during startup, and adjusts the existing zend_test
-  observer regression tests (ext/zend_test/tests/observer_bug81430_2.phpt, observer_bug81435.phpt and
-  observer_error_01.phpt) that assert observer state stays consistent across fatal bailouts. The fix commit
-  also adds many oom_* regression tests.
-
-  '
-repository:
-  source_path: ${BACKPORT_REPOS}/repo.git
-  workdir: ${BACKPORT_WORK}
-branches:
-  source: master
-  targets:
-  - eval/w8hw/PHP-8.3-eol
-fix:
-  commit: 3584a98bda0f2c0d367255b046798b0d3a221a19
-build:
-  command: export PATH=/usr/bin:$PATH; export CFLAGS=-std=gnu11; ([ -f configure
-    ] || ./buildconf --force) && ./configure --disable-all --enable-cli --enable-zend-test --enable-session
-    && make -j$(nproc)
-  test_command: make test TESTS='ext/zend_test/tests/observer_bug81430_2.phpt ext/zend_test/tests/observer_bug81435.phpt
-    ext/zend_test/tests/observer_error_01.phpt'
-advanced:
-  timeout_minutes: 45
-  fused_pre_red: true
-  fused_resolution: true
-  fused_compact_prompts: true
-  tool_read_cap: 20000
-  tool_bash_cap: 12000
-  context_length: 1000000
-model: deepseek-v41-flash
+# Single source of truth for this benchmark case.
+# bench:    refs, fix and forbidden human backports; never mounted into a run.
+# pipeline: rendered into cases/<case>/run/case.yaml and mounted at /case.
+bench:
+  upstream: https://github.com/php/php-src.git
+  difficulty: extreme
+  source:
+    branch: master
+    sha: 3584a98bda0f2c0d367255b046798b0d3a221a19
+    depth: 2
+  target:
+    branch: eval/w8hw/PHP-8.3-eol
+    sha: 54b4c1a67cfdf6d4144579fb574f75ff75e7f67b
+    depth: 1
+    upstream_branch: PHP-8.3
+  fix:
+    kind: commit
+    sha: 3584a98bda0f2c0d367255b046798b0d3a221a19
+  forbidden: []
+pipeline:
+  issue_id: GHSA-w8hw-6wmf-PHP-8.3
+  bug_description: |
+    PHP uses longjmp()-based bailout (zend_bailout) to abort the current context on fatal errors such as memory exhaustion. In some contexts, request memory and engine state (call frames, hashtables, observer state, globals) are left in an invalid state when a bailout fires mid-operation; code that runs afterwards during request shutdown may read or branch on that corrupted state, which can be leveraged for remote code execution (GHSA-w8hw-w9fx-j79w, CVE-2026-109618). Additionally, various global state retained by a worker process can point to memory owned by a previous request; operations that run before the next request's normal initialization can consume that stale state, causing a use-after-free that can also be leveraged for remote code execution (GHSA-6wmf-4rv5-p3rp, CVE-2026-109619). The fix on master replaces bailout on out-of-memory with an UnwindExit-based mechanism across the engine and extensions, properly resets various globals that may be accessed during startup, and adjusts the existing zend_test observer regression tests (ext/zend_test/tests/observer_bug81430_2.phpt, observer_bug81435.phpt and observer_error_01.phpt) that assert observer state stays consistent across fatal bailouts. The fix commit also adds many oom_* regression tests.
+  build:
+    command: export PATH=/usr/bin:$PATH; export CFLAGS=-std=gnu11; ([ -f configure ] || ./buildconf --force) && ./configure --disable-all --enable-cli --enable-zend-test --enable-session && make -j$(nproc)
+    test_command: make test TESTS='ext/zend_test/tests/observer_bug81430_2.phpt ext/zend_test/tests/observer_bug81435.phpt ext/zend_test/tests/observer_error_01.phpt'
+  advanced:
+    timeout_minutes: 45
+    fused_pre_red: true
+    fused_resolution: true
+    fused_compact_prompts: true
+    tool_read_cap: 20000
+    tool_bash_cap: 12000
+    context_length: 1000000
+  model: deepseek-v41-flash

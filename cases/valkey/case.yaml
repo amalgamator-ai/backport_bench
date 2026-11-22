@@ -1,34 +1,45 @@
-issue_id: CVE-2026-25243-valkey-restore-zipmap
-bug_description: |
-  Valkey's RESTORE command deserializes an RDB-encoded value supplied by the client. The zipmap loader
-  did not validate header and entry lengths before dereferencing them, so a malformed zipmap inside a
-  RESTORE payload could cause an invalid memory access that crashes or corrupts the server
-  (CVE-2026-25243). The upstream fix validates zipmap header and entry bounds while loading,
-  propagates an error through the RDB loader, and adds regression tests to tests/unit/dump.tcl. The
-  backport must port the fix to the 8.0 release branch, where rdb.c and zipmap.c have diverged
-  substantially from unstable.
-repository:
-  source_path: ${BACKPORT_REPOS}/repo.git
-  workdir: ${BACKPORT_WORK}
-branches:
-  source: unstable
-  targets:
-  - '8.0'
-fix:
-  commit: fea0b4064cf612d1c365b032326832bff0946bd9
-build:
-  command: make -j$(nproc)
-  test_command: |-
-    export PATH=/opt/tcl/bin:$PATH
-    export TCL_LIBRARY=/opt/tcl/lib/tcl8.6
-    export LD_LIBRARY_PATH=/opt/tcl/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
-    ./runtest --single unit/dump
-advanced:
-  timeout_minutes: 60
-  fused_pre_red: true
-  fused_resolution: true
-  fused_compact_prompts: true
-  tool_read_cap: 20000
-  tool_bash_cap: 12000
-  context_length: 1000000
-model: deepseek-v41-flash
+# Single source of truth for this benchmark case.
+# bench:    refs, fix and forbidden human backports; never mounted into a run.
+# pipeline: rendered into cases/<case>/run/case.yaml and mounted at /case.
+bench:
+  upstream: https://github.com/valkey-io/valkey.git
+  difficulty: medium
+  source:
+    branch: unstable
+    sha: fea0b4064cf612d1c365b032326832bff0946bd9
+    depth: 2
+  target:
+    branch: '8.0'
+    sha: e058d4690f7e4d8b34f2c7c260a1709dc3aa5ff8
+    depth: 1
+  fix:
+    kind: commit
+    sha: fea0b4064cf612d1c365b032326832bff0946bd9
+  forbidden:
+  - fdc142c6558071c5009c9ef84ee804a33667b14d
+pipeline:
+  issue_id: CVE-2026-25243-valkey-restore-zipmap
+  bug_description: |
+    Valkey's RESTORE command deserializes an RDB-encoded value supplied by the client. The zipmap loader
+    did not validate header and entry lengths before dereferencing them, so a malformed zipmap inside a
+    RESTORE payload could cause an invalid memory access that crashes or corrupts the server
+    (CVE-2026-25243). The upstream fix validates zipmap header and entry bounds while loading,
+    propagates an error through the RDB loader, and adds regression tests to tests/unit/dump.tcl. The
+    backport must port the fix to the 8.0 release branch, where rdb.c and zipmap.c have diverged
+    substantially from unstable.
+  build:
+    command: make -j$(nproc)
+    test_command: |-
+      export PATH=/opt/tcl/bin:$PATH
+      export TCL_LIBRARY=/opt/tcl/lib/tcl8.6
+      export LD_LIBRARY_PATH=/opt/tcl/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+      ./runtest --single unit/dump
+  advanced:
+    timeout_minutes: 60
+    fused_pre_red: true
+    fused_resolution: true
+    fused_compact_prompts: true
+    tool_read_cap: 20000
+    tool_bash_cap: 12000
+    context_length: 1000000
+  model: deepseek-v41-flash

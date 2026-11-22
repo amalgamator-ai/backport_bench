@@ -33,8 +33,7 @@ for c in "${cases[@]}"; do
   fi
   if out="$("${PODMAN[@]}" run --rm --network=none \
         "${PODMAN_RUN_OPTS[@]}" \
-        -v "$BENCH_DIR/cases/$c:/case:ro" \
-        "$image" /case/check-prereqs.sh 2>&1)"; then
+        "$image" /usr/local/bin/bench-check-prereqs 2>&1)"; then
     printf '%-16s ok (%s)\n' "$c" "$(echo "$out" | tail -1)"
   else
     printf '%-16s FAILED\n%s\n' "$c" "$out" | sed 's/^/    /'

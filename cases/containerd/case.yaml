@@ -1,43 +1,38 @@
-issue_id: CVE-2026-53488-containerd-1.7
-bug_description: 'containerd''s CRI plugin copies labels from an image config (the Dockerfile LABEL instruction)
-  onto the container without validating them. Labels in the containerd.io/* namespace are interpreted
-  by containerd itself, and labels in the io.cri-containerd* namespace are interpreted by the CRI plugin.
-  An untrusted image is therefore not a safe source for labels in either namespace: a crafted image can
-  change containerd''s behavior, and a plugin that consumes container labels for host-side operations
-  can be driven to execute an arbitrary command on the host as root.
-
-  The upstream fix skips labels in both reserved namespaces when copying labels from an image config to
-  a container. It applies to both label-copying paths: the CRI plugin''s label builder (including the
-  sandbox-server code paths) and the client''s WithImageConfigLabels option used by `ctr run`. Labels
-  supplied explicitly by clients, for example via the CRI request or `ctr run --label`, must remain unaffected.
-  Each skipped image-config label is warned about.
-
-  '
-repository:
-  source_path: ${BACKPORT_REPOS}/repo.git
-  workdir: ${BACKPORT_WORK}
-branches:
-  source: main
-  target: release/1.7
-fix:
-  commit: 0ec1af4cae1256d18719ca892bf66340499e8050
-build:
-  command: export PATH=/usr/local/go/bin:$PATH; export CGO_ENABLED=0 GOFLAGS=-mod=vendor GOPROXY=off;
-    export GOCACHE="$PWD/.gocache" GOTMPDIR="$PWD/.gotmp" TMPDIR="$PWD/.tmp"; mkdir -p "$GOCACHE" "$GOTMPDIR"
-    "$TMPDIR"; go build ./...
-  test_command: export PATH=/usr/local/go/bin:$PATH; export CGO_ENABLED=0 GOFLAGS=-mod=vendor
-    GOPROXY=off; export GOCACHE="$PWD/.gocache" GOTMPDIR="$PWD/.gotmp" TMPDIR="$PWD/.tmp"; mkdir -p "$GOCACHE"
-    "$GOTMPDIR" "$TMPDIR"; go test -count=1 . -run '^TestWithImageConfigLabels$' && go test -count=1 ./pkg/cri/server
-    -run '^TestBuildLabels$' && go test -count=1 ./pkg/cri/sbserver -run '^TestBuildLabels$' && go test
-    -count=1 ./pkg/cri/sbserver/podsandbox -run '^TestBuildLabels$'
-model: deepseek-v41-flash
-advanced:
-  context_length: 1000000
-  timeout_minutes: 30
-  max_build_test_retries: 3
-  max_resolution_retries: 1
-  fused_resolution: true
-  fused_pre_red: true
-  fused_compact_prompts: true
-  tool_read_cap: 20000
-  tool_bash_cap: 12000
+# Single source of truth for this benchmark case.
+# bench:    refs, fix and forbidden human backports; never mounted into a run.
+# pipeline: rendered into cases/<case>/run/case.yaml and mounted at /case.
+bench:
+  upstream: https://github.com/containerd/containerd.git
+  difficulty: medium
+  source:
+    branch: main
+    sha: 0ec1af4cae1256d18719ca892bf66340499e8050
+    depth: 2
+  target:
+    branch: release/1.7
+    sha: 9d386ad4e2ae7dfc7fa59fa5d289b61b76ba6546
+    depth: 1
+  fix:
+    kind: commit
+    sha: 0ec1af4cae1256d18719ca892bf66340499e8050
+  forbidden:
+  - 4d8ba4d23561c9ec21b0113ddcfc22f41792b25e
+pipeline:
+  issue_id: CVE-2026-53488-containerd-1.7
+  bug_description: |
+    containerd's CRI plugin copies labels from an image config (the Dockerfile LABEL instruction) onto the container without validating them. Labels in the containerd.io/* namespace are interpreted by containerd itself, and labels in the io.cri-containerd* namespace are interpreted by the CRI plugin. An untrusted image is therefore not a safe source for labels in either namespace: a crafted image can change containerd's behavior, and a plugin that consumes container labels for host-side operations can be driven to execute an arbitrary command on the host as root.
+    The upstream fix skips labels in both reserved namespaces when copying labels from an image config to a container. It applies to both label-copying paths: the CRI plugin's label builder (including the sandbox-server code paths) and the client's WithImageConfigLabels option used by `ctr run`. Labels supplied explicitly by clients, for example via the CRI request or `ctr run --label`, must remain unaffected. Each skipped image-config label is warned about.
+  build:
+    command: export PATH=/usr/local/go/bin:$PATH; export CGO_ENABLED=0 GOFLAGS=-mod=vendor GOPROXY=off; export GOCACHE="$PWD/.gocache" GOTMPDIR="$PWD/.gotmp" TMPDIR="$PWD/.tmp"; mkdir -p "$GOCACHE" "$GOTMPDIR" "$TMPDIR"; go build ./...
+    test_command: export PATH=/usr/local/go/bin:$PATH; export CGO_ENABLED=0 GOFLAGS=-mod=vendor GOPROXY=off; export GOCACHE="$PWD/.gocache" GOTMPDIR="$PWD/.gotmp" TMPDIR="$PWD/.tmp"; mkdir -p "$GOCACHE" "$GOTMPDIR" "$TMPDIR"; go test -count=1 . -run '^TestWithImageConfigLabels$' && go test -count=1 ./pkg/cri/server -run '^TestBuildLabels$' && go test -count=1 ./pkg/cri/sbserver -run '^TestBuildLabels$' && go test -count=1 ./pkg/cri/sbserver/podsandbox -run '^TestBuildLabels$'
+  model: deepseek-v41-flash
+  advanced:
+    context_length: 1000000
+    timeout_minutes: 30
+    max_build_test_retries: 3
+    max_resolution_retries: 1
+    fused_resolution: true
+    fused_pre_red: true
+    fused_compact_prompts: true
+    tool_read_cap: 20000
+    tool_bash_cap: 12000
