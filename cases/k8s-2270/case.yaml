@@ -17,10 +17,10 @@ branches:
 fix:
   commit: a1d21b1af2befcb037a105bc46114296c33740af
 build:
-  command: export PATH=${TOOLCHAINS}/go/bin:$PATH; export CGO_ENABLED=0 GOFLAGS=-mod=vendor GOPROXY=off;
+  command: export PATH=/usr/local/go/bin:$PATH; export CGO_ENABLED=0 GOFLAGS=-mod=vendor GOPROXY=off;
     export GOCACHE="$PWD/.gocache" GOTMPDIR="$PWD/.gotmp" TMPDIR="$PWD/.tmp"; mkdir -p "$GOCACHE" "$GOTMPDIR"
     "$TMPDIR"; go build -o "$(dirname "$PWD")/kube-controller-manager-bin" ./cmd/kube-controller-manager
-  test_command: export PATH=${TOOLCHAINS}/go/bin:$PATH; export CGO_ENABLED=0 GOFLAGS=-mod=vendor
+  test_command: export PATH=/usr/local/go/bin:$PATH; export CGO_ENABLED=0 GOFLAGS=-mod=vendor
     GOPROXY=off; export GOCACHE="$PWD/.gocache" GOTMPDIR="$PWD/.gotmp" TMPDIR="$PWD/.tmp"; mkdir -p "$GOCACHE"
     "$GOTMPDIR" "$TMPDIR"; go test -count=1 ./pkg/controller/statefulset/...
 model: deepseek-v41-flash

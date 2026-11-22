@@ -7,12 +7,14 @@
     {
       "date": "20261121",
       "outcome": "success",
-      "wall_s": 475,
-      "input_tokens": 1006329,
-      "output_tokens": 32626,
+      "wall_s": 643,
+      "input_tokens": 1263812,
+      "output_tokens": 31313,
       "audit": "PASS",
       "model": "deepseek-v41-flash",
-      "reasoning_effort": "medium"
+      "reasoning_effort": "medium",
+      "environment": "container",
+      "image": "localhost/bench/k8s-143087:1"
     }
   ]
 }

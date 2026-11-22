@@ -18,14 +18,14 @@ fix:
   commit: 7292932d45d55c7199324ab0027cc86e8198aa22
 build:
   command: |-
-    export PATH=${TOOLCHAINS}/go/bin:$PATH
-    export GOFLAGS=-mod=mod GOPROXY=off GOSUMDB=off GOMODCACHE=${TOOLCHAINS}/gomodcache
+    export PATH=/usr/local/go/bin:$PATH
+    export GOFLAGS=-mod=mod GOPROXY=off GOSUMDB=off GOMODCACHE=/opt/gomodcache
     export GOCACHE="$PWD/.gocache" GOTMPDIR="$PWD/.gotmp" TMPDIR="$PWD/.tmp"
     mkdir -p "$GOCACHE" "$GOTMPDIR" "$TMPDIR"
     go build ./ssh/...
   test_command: |-
-    export PATH=${TOOLCHAINS}/go/bin:$PATH
-    export GOFLAGS=-mod=mod GOPROXY=off GOSUMDB=off GOMODCACHE=${TOOLCHAINS}/gomodcache
+    export PATH=/usr/local/go/bin:$PATH
+    export GOFLAGS=-mod=mod GOPROXY=off GOSUMDB=off GOMODCACHE=/opt/gomodcache
     export GOCACHE="$PWD/.gocache" GOTMPDIR="$PWD/.gotmp" TMPDIR="$PWD/.tmp"
     mkdir -p "$GOCACHE" "$GOTMPDIR" "$TMPDIR"
     go test -count=1 ./ssh

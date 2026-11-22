@@ -6,12 +6,14 @@
     {
       "date": "20261121",
       "outcome": "success",
-      "wall_s": 928,
-      "input_tokens": 2373614,
-      "output_tokens": 61352,
+      "wall_s": 1054,
+      "input_tokens": 2842336,
+      "output_tokens": 91469,
       "audit": "PASS",
       "model": "deepseek-v41-flash",
-      "reasoning_effort": "medium"
+      "reasoning_effort": "medium",
+      "environment": "container",
+      "image": "localhost/bench/php82:1"
     }
   ]
 }

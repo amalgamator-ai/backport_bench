@@ -7,12 +7,14 @@
     {
       "date": "20261121",
       "outcome": "success",
-      "wall_s": 38,
-      "input_tokens": 36821,
-      "output_tokens": 2582,
+      "wall_s": 50,
+      "input_tokens": 78659,
+      "output_tokens": 3511,
       "audit": "PASS",
       "model": "deepseek-v41-flash",
-      "reasoning_effort": "medium"
+      "reasoning_effort": "medium",
+      "environment": "container",
+      "image": "localhost/bench/pcre2:1"
     }
   ]
 }

@@ -7,12 +7,14 @@
     {
       "date": "20261121",
       "outcome": "success",
-      "wall_s": 49,
-      "input_tokens": 73321,
-      "output_tokens": 4117,
+      "wall_s": 52,
+      "input_tokens": 101275,
+      "output_tokens": 3524,
       "audit": "PASS",
       "model": "deepseek-v41-flash",
-      "reasoning_effort": "medium"
+      "reasoning_effort": "medium",
+      "environment": "container",
+      "image": "localhost/bench/golang-crypto:1"
     }
   ]
 }

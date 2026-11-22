@@ -21,7 +21,7 @@ branches:
 fix:
   commit: 315c4e4e85f3fae5ebc3a62d69b5400138d307f9
 build:
-  command: export PATH=${W8HW_ENV}/env/bin:$PATH; ([ -f configure ] || ./configure --without-readline
+  command: export PATH=/usr/bin:$PATH; ([ -f configure ] || ./configure --without-readline
     --without-zlib) && make -j$(nproc)
   test_command: make check
 advanced:

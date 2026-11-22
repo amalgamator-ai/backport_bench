@@ -10,10 +10,11 @@ see it locally and cannot fetch it from the network.
 
 ```
 refs/cases.json          public upstream URL + pinned SHAs per case
-cases/<name>/case.yaml   pipeline config (portable paths)
+cases/<name>/case.yaml   pipeline config (image paths)
+cases/<name>/check-prereqs.sh  checks run inside the case image
 cases/<name>/repo.git    sanitized pack, built from public refs (gitignored)
 cases/<name>/fix.patch   fix as a patch (patch-mode cases only)
-scripts/                 build, verify, run, audit, summarize
+scripts/                 images, build, verify, run, audit, summarize
 models/                  registry template; models.local.yaml is yours (gitignored)
 grading/<name>/          human fix + reference numbers (never mounted)
 results/                 run artifacts (gitignored)
@@ -25,14 +26,16 @@ cache/                   full upstream mirrors, one per repo (gitignored)
 ### 1. Install the base tools
 
 ```bash
-sudo dnf install bubblewrap git python3 gcc make          # Fedora
-sudo apt install bubblewrap git python3 build-essential   # Debian/Ubuntu
+sudo dnf install podman git python3 curl                  # Fedora
+sudo apt install podman git python3 curl                  # Debian/Ubuntu
 curl -LsSf https://astral.sh/uv/install.sh | sh           # uv, if missing
 ```
 
-Go, Tcl and autotools come from the build toolchains checked in step 4. Their
-locations default to `$HOME/toolchains` (`TOOLCHAINS`) and `$HOME/w8hw-tools`
-(`W8HW_ENV`); export overrides if you keep them elsewhere.
+All case toolchains live inside the container images; the host needs only
+podman, git, python3 and uv. Use rootless podman with `/etc/subuid` and
+`/etc/subgid` configured for your user (the default on Fedora). If podman is
+not installed, set `PODMAN_ROOT` to a rootless podman tree; `scripts/podman-env.sh`
+falls back to `$HOME/toolchains/podman-root`.
 
 ### 2. Clone amalgamator and the bench side by side
 
@@ -75,18 +78,18 @@ records only the key *path*, never the key. Non-interactive use:
   --api-key-file ~/.config/amalgamator/keys/litellm
 ```
 
-### 4. Check the environment
+### 4. Build the case images
 
 ```bash
 cd ~/work/backport_bench
-./scripts/check-prereqs.sh
+./scripts/build-images.sh
 ```
 
-It verifies `git`, Python, `bubblewrap`, `flock`, the amalgamator venv, the
-model registry, Go + the x/crypto module cache, Tcl, autotools, free disk and
-the capability to build a user/network namespace, printing `ok` or `MISSING`
-for each item. Install whatever it reports missing; the toolchain locations are
-the `TOOLCHAINS` and `W8HW_ENV` paths from step 1.
+Two shared bases are built once (network needed): `bench-tools` (Fedora with
+gcc/make/autotools/bison/flex/cmake/Tcl plus the PHP and glibc build deps) and
+`bench-go` (golang:1.25 with the x/crypto module cache). Each case then gets
+its own tag `localhost/bench/<case>:1`. Re-run with `--force` after changing a
+base.
 
 ### 5. Build the case packs
 
@@ -106,7 +109,18 @@ remotes, tags, reflogs or unreachable objects. It then runs the leak check:
 
 A failing check aborts the case.
 
-### 6. Run
+### 6. Check the environment
+
+```bash
+./scripts/check-prereqs.sh
+```
+
+It checks the host runner (podman, git, Python, `flock`, the amalgamator venv,
+the model registry, disk) and then runs each case's own
+`cases/<name>/check-prereqs.sh` inside that case's image. Every line must be
+`ok` before running the suite.
+
+### 7. Run
 
 ```bash
 ./scripts/run-case.sh pcre2          # quick single case (under a minute)
@@ -115,24 +129,28 @@ A failing check aborts the case.
 ./scripts/summarize.py               # per-case table + results/summary.csv
 ```
 
-Each run happens inside a bubblewrap sandbox:
+Each run happens in that case's own container:
 
-- filesystem: only the case pack copy, a fresh workspace, the amalgamator
-  checkout, the model registry, and the build toolchains are mounted;
-- network: a new network namespace whose only reachable peer is a host-side
-  TLS pass-through proxy for the model endpoint. GitHub, sourceware and every
-  other host are unreachable;
+- image: `localhost/bench/<case>:1`, whose only content is public toolchains;
+  the project, pack, grading data and results are never part of the image;
+- filesystem: read-only root, with only the sanitized pack copy, a fresh
+  workspace, the amalgamator checkout, the case config, the model registry and
+  the model socket mounted; `grading/`, `cache/`, `results/` and `$HOME` are
+  not visible;
+- network: `--network=none`; the model is reached through a Unix socket to a
+  host-side TLS pass-through proxy, so no upstream host or DNS is reachable;
 - after the run, `audit-run.sh` scans the transcript for `git fetch`, `curl`,
-  `git log --all`, the upstream host and the forbidden SHAs. A run that trips
-  the audit is reported as invalid.
+  `git log --all`, the upstream host and forbidden SHAs, and asserts from
+  `container.json` that the network mode is `none` and the mount set matches
+  the whitelist. A run that trips the audit is reported as invalid.
 
 The model comes from `models/models.local.yaml`; keep
 `params.reasoning_effort: medium` for comparable results.
 
-### Sandbox test shims
+### Container test shims
 
-The sandbox is a bubblewrap user namespace with only uid/gid 0 mapped, so a
-few test suites see host-like privileges but cannot use every uid/gid:
+A few test suites need root-like uid/gid behaviour. These shims keep them
+working under unprivileged container mappings:
 
 - `cases/rsync/sandbox_setgroups.c` accepts the daemon's `setgroups` call and
   hides the unmapped overflow gid from `getgroups`, so `make check` runs as it
@@ -162,26 +180,19 @@ they do not modify the project under test or the files the tests compare.
 | rsync | rsync 3.2 LTS | hard | two-commit daemon TOCTOU backport, full test suite |
 | cpython-tarfile | CPython 3.12 | extreme | four-CVE tarfile filter/repath backport, three test modules |
 
-### Toolchains and paths
+### Images
 
-Nothing is tied to one machine; scripts read these variables and case build
-commands expand them inside the sandbox:
-
-| variable | default | used for |
+| image | built from | used by |
 |---|---|---|
-| `AMALGAMATOR` | `../amalgamator` beside this repo | amalgamator checkout |
-| `TOOLCHAINS` | `$HOME/toolchains` | Go toolchain and module cache, Tcl, RPM/perl build roots |
-| `W8HW_ENV` | `$HOME/w8hw-tools` | autotools and PHP build environment |
-| `UV_PYTHON_HOME` | `$HOME/.local` | uv/pip install root |
+| `localhost/bench-tools:1` | `fedora:44` + dnf build tools + Tcl 8.6 | C, autotools, PHP, glibc, PostgreSQL, CPython, Valkey, PCRE2 cases |
+| `localhost/bench-go:1` | `golang:1.25` + `golang.org/x` module cache | runc, containerd, Kubernetes, golang.org/x/crypto |
+| `localhost/bench/<case>:1` | tag of one of the above | that case only |
 
-Export an override before `build-all.sh`/`run-suite.sh` if your layout
-differs. `scripts/check-prereqs.sh` verifies:
-
-- `${TOOLCHAINS}/go` plus `GOMODCACHE` at `${TOOLCHAINS}/gomodcache`
-  populated for x/crypto v0.33.0 (`go mod download` once, with network);
-- `${TOOLCHAINS}/tcl` for Valkey's Tcl test harness;
-- `${W8HW_ENV}/env/bin` autotools for rsync's bootstrap;
-- CPython needs only system `python3`, gcc and make.
+`scripts/build-images.sh` records image IDs in `images.lock.json`. The only
+host paths a run mounts are the amalgamator checkout, the case directory, the
+run directory and the uv Python installation that backs the venv; there are no
+host toolchains to configure. `TOOLCHAINS` (default `$HOME/toolchains`) is used
+only when building `bench-go` and when copying Tcl 8.6 into `bench-tools`.
 
 ## Adding a case
 
@@ -189,9 +200,14 @@ differs. `scripts/check-prereqs.sh` verifies:
    backport (or before the fix).
 2. Add an entry to `refs/cases.json` (URL, source/target SHA, fix kind,
    optional `target.upstream_branch` for discovery).
-3. Create `cases/<name>/case.yaml` with portable paths
-   (`${BACKPORT_REPOS}/repo.git`, `${BACKPORT_WORK}`).
-4. `./scripts/build-case.sh <name>` and fix anything the leak check reports.
-5. `./scripts/run-case.sh <name>`; record reference numbers in `grading/`.
+3. Create `cases/<name>/case.yaml` with the container paths
+   (`${BACKPORT_REPOS}/repo.git`, `${BACKPORT_WORK}`) and build/test commands
+   that use image paths only.
+4. Add `cases/<name>/check-prereqs.sh` (runs inside the image; exit non-zero
+   and print `missing: ...` when a tool is absent).
+5. `./scripts/build-case.sh <name>` and fix anything the leak check reports.
+6. `./scripts/build-images.sh <name>` and `./scripts/check-prereqs.sh <name>`.
+7. `./scripts/run-case.sh <name>`; record reference numbers in `grading/`.
 
-No runner code changes are needed for a normal case.
+Cases share the `bench-tools` or `bench-go` base; no Dockerfile is needed
+unless a case requires extra packages.

@@ -17,9 +17,9 @@ print(" ".join(s for s in json.load(open(sys.argv[1])).get("forbidden", []) if l
 PY
 )"
 
-python3 - "$logf" "$out" "$host" "$forbidden" <<'PY'
+python3 - "$logf" "$out" "$host" "$forbidden" "$run" "$case" <<'PY'
 import json, re, sys
-log_path, out_path, upstream_host, forbidden_raw = sys.argv[1:5]
+log_path, out_path, upstream_host, forbidden_raw, run_dir, case_name = sys.argv[1:7]
 forbidden = forbidden_raw.split()
 remote_url = re.compile(r"https?://|\bgit@|\bssh://|\bgit://")
 patterns = [
@@ -60,6 +60,26 @@ with open(log_path, errors="replace") as fh:
 for sha in forbidden:
     if sha in text:
         findings.append({"kind": "forbidden sha", "sha": sha})
+# Container configuration: no network, only whitelisted mounts, per-case image.
+container_path = f"{run_dir}/container.json"
+try:
+    info = json.load(open(container_path))[0]
+except (OSError, ValueError, IndexError):
+    findings.append({"kind": "container", "detail": "container.json missing"})
+else:
+    if info.get("HostConfig", {}).get("NetworkMode") != "none":
+        findings.append({"kind": "container network", "detail": info.get("HostConfig", {}).get("NetworkMode")})
+    expected_image = f"localhost/bench/{case_name}:1"
+    if info.get("ImageName") != expected_image:
+        findings.append({"kind": "container image", "detail": info.get("ImageName")})
+    allowed = {"/work", "/app", "/case", "/models.yaml", "/tools", "/etc/hosts", "/llm.sock"}
+    uv_python = re.compile(r"^/home/[^/]+/\.local/share/uv/python$")
+    for mount in info.get("Mounts") or []:
+        dest = mount.get("Destination", "")
+        if dest not in allowed and not uv_python.match(dest):
+            findings.append({"kind": "container mount", "detail": dest})
+        if mount.get("RW") and dest not in {"/work", "/llm.sock"}:
+            findings.append({"kind": "writable mount", "detail": dest})
 status = "FAIL" if findings else "PASS"
 json.dump({"status": status, "findings": findings[:20]}, open(out_path, "w"), indent=2)
 print(f"AUDIT {status}: {len(findings)} finding(s)")

@@ -11,12 +11,14 @@
     {
       "date": "20261121",
       "outcome": "success",
-      "wall_s": 2717,
-      "input_tokens": 25446851,
-      "output_tokens": 243785,
+      "wall_s": 2874,
+      "input_tokens": 28242126,
+      "output_tokens": 251329,
       "audit": "PASS",
       "model": "deepseek-v41-flash",
-      "reasoning_effort": "medium"
+      "reasoning_effort": "medium",
+      "environment": "container",
+      "image": "localhost/bench/cpython-tarfile:1"
     }
   ]
 }

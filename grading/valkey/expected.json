@@ -7,12 +7,14 @@
     {
       "date": "20261121",
       "outcome": "success",
-      "wall_s": 753,
-      "input_tokens": 915163,
-      "output_tokens": 51194,
+      "wall_s": 1988,
+      "input_tokens": 1974636,
+      "output_tokens": 112428,
       "audit": "PASS",
       "model": "deepseek-v41-flash",
-      "reasoning_effort": "medium"
+      "reasoning_effort": "medium",
+      "environment": "container",
+      "image": "localhost/bench/valkey:1"
     }
   ]
 }

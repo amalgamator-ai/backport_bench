@@ -20,7 +20,7 @@ fix:
   commit: 859d44fa4f1420775e4ba050337ef32092f2894c
 build:
   command: |-
-    export PATH=${W8HW_ENV}/env/bin:$PATH
+    export PATH=/usr/bin:$PATH
     CFLAGS='-std=gnu17 -O2' ac_cv_func_lseek64=no ./configure --disable-openssl --disable-zstd --disable-lz4 --disable-xxhash --disable-md2man
     make -j$(nproc)
   test_command: |-

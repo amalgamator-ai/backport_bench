@@ -5,14 +5,16 @@
   "notes": "runc release/1.2; harness discovers any same-subject backport.",
   "reference_runs": [
     {
-      "date": "20261120",
+      "date": "20261121",
       "outcome": "success",
-      "wall_s": 5094,
-      "input_tokens": 31219020,
-      "output_tokens": 580940,
+      "wall_s": 5775,
+      "input_tokens": 44877576,
+      "output_tokens": 738546,
       "audit": "PASS",
       "model": "deepseek-v41-flash",
-      "reasoning_effort": "medium"
+      "reasoning_effort": "medium",
+      "environment": "container",
+      "image": "localhost/bench/runc:1"
     }
   ]
 }

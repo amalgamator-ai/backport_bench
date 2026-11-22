@@ -106,8 +106,9 @@ PY
 cat <<EOF
 
 Next steps:
-  1. ${BENCH_DIR}/scripts/check-prereqs.sh
+  1. ${BENCH_DIR}/scripts/build-images.sh
   2. ${BENCH_DIR}/scripts/build-all.sh
-  3. ${BENCH_DIR}/scripts/run-case.sh pcre2    # quick smoke case
-  4. ${BENCH_DIR}/scripts/run-suite.sh --parallel 2
+  3. ${BENCH_DIR}/scripts/check-prereqs.sh
+  4. ${BENCH_DIR}/scripts/run-case.sh pcre2    # quick smoke case
+  5. ${BENCH_DIR}/scripts/run-suite.sh --parallel 2
 EOF

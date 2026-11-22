@@ -23,11 +23,11 @@ branches:
 fix:
   commit: 2f74f4ae1b483b3a4d197f574a37c7b768baf96f
 build:
-  command: export PATH=${TOOLCHAINS}/go/bin:$PATH; export CGO_ENABLED=1 GOFLAGS=-mod=vendor GOPROXY=off;
+  command: export PATH=/usr/local/go/bin:$PATH; export CGO_ENABLED=1 GOFLAGS=-mod=vendor GOPROXY=off;
     export GOCACHE="$PWD/.gocache" GOTMPDIR="$PWD/.gotmp" TMPDIR="$PWD/.tmp"; mkdir -p "$GOCACHE" "$GOTMPDIR"
     "$TMPDIR"; pkgs=$(go list ./libcontainer/... | grep -v '/nsenter$'); go build -tags 'urfave_cli_no_docs'
     ./ ./internal/... $pkgs
-  test_command: export PATH=${TOOLCHAINS}/go/bin:$PATH; export CGO_ENABLED=1 GOFLAGS=-mod=vendor
+  test_command: export PATH=/usr/local/go/bin:$PATH; export CGO_ENABLED=1 GOFLAGS=-mod=vendor
     GOPROXY=off; export GOCACHE="$PWD/.gocache" GOTMPDIR="$PWD/.gotmp" TMPDIR="$PWD/.tmp"; mkdir -p "$GOCACHE"
     "$GOTMPDIR" "$TMPDIR"; go test -tags 'urfave_cli_no_docs' -count=1 ./internal/pathrs -run '^TestIsLexicallyInRoot$'
     && go test -tags 'urfave_cli_no_docs' -count=1 ./libcontainer/utils && go test -tags 'urfave_cli_no_docs'

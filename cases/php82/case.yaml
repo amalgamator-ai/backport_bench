@@ -24,7 +24,7 @@ branches:
 fix:
   commit: 3584a98bda0f2c0d367255b046798b0d3a221a19
 build:
-  command: export PATH=${W8HW_ENV}/env/bin:$PATH; export CFLAGS=-std=gnu11; ([ -f configure
+  command: export PATH=/usr/bin:$PATH; export CFLAGS=-std=gnu11; ([ -f configure
     ] || ./buildconf --force) && ./configure --disable-all --enable-cli --enable-zend-test --enable-session
     && make -j$(nproc)
   test_command: make test TESTS='ext/zend_test/tests/observer_bug81430_2.phpt ext/zend_test/tests/observer_bug81435.phpt

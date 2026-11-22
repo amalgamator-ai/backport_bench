@@ -23,11 +23,12 @@ All inputs come from public repositories. Packs are built by
 `cases/k8s-143087/tests.patch` is a case-provided regression test (not the
 fix). `cases/k8s-143087/fix.patch` is the public fix diff (PR #143087).
 
-`cases/rsync/sandbox_setgroups.c` is a test-only LD_PRELOAD shim: the
-sandbox's user namespace cannot map supplementary gids, and rsync's daemon
-treats the resulting `setgroups` EPERM as fatal. The shim accepts the
-privilege-drop call and hides the overflow gid from `getgroups`, emulating the
-normal root-host behaviour; it does not alter rsync code or file content.
+`cases/rsync/sandbox_setgroups.c` and
+`cases/cpython-tarfile/sandbox_fakechown.c` are test-only LD_PRELOAD shims.
+They emulate the root-host outcome of the daemon's `setgroups` call and of the
+`chown` calls tarfile makes only as root, so the suites can run under
+unprivileged container uid/gid mappings without altering project code or the
+files the tests compare.
 
 For target branch commits that are non-upstream names (`eval/...` in the
 original benchmark), `refs/cases.json` records the real upstream branch under

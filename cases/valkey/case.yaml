@@ -19,9 +19,9 @@ fix:
 build:
   command: make -j$(nproc)
   test_command: |-
-    export PATH=${TOOLCHAINS}/tcl/bin:$PATH
-    export TCL_LIBRARY=${TOOLCHAINS}/tcl/lib/tcl8.6
-    export LD_LIBRARY_PATH=${TOOLCHAINS}/tcl/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+    export PATH=/opt/tcl/bin:$PATH
+    export TCL_LIBRARY=/opt/tcl/lib/tcl8.6
+    export LD_LIBRARY_PATH=/opt/tcl/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
     ./runtest --single unit/dump
 advanced:
   timeout_minutes: 60

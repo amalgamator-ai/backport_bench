@@ -7,12 +7,14 @@
     {
       "date": "20261121",
       "outcome": "success",
-      "wall_s": 1733,
-      "input_tokens": 11481643,
-      "output_tokens": 169395,
+      "wall_s": 1530,
+      "input_tokens": 9568449,
+      "output_tokens": 127184,
       "audit": "PASS",
       "model": "deepseek-v41-flash",
-      "reasoning_effort": "medium"
+      "reasoning_effort": "medium",
+      "environment": "container",
+      "image": "localhost/bench/pgrls:1"
     }
   ]
 }

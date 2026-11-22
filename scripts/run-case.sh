@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Run one case in a network-isolated bubblewrap sandbox.
-# Usage: run-case.sh <case> [--skip-verify]
+# Run one case in its own network-isolated container.
+# Usage: run-case.sh <case>
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
+source "$(dirname "$0")/podman-env.sh"
 
 case="${1:?usage: run-case.sh <case>}"
 require_case "$case"
@@ -10,7 +11,15 @@ pack="$BENCH_DIR/cases/$case/repo.git"
 [ -d "$pack" ] || die "[$case] pack missing; run scripts/build-case.sh $case"
 [ -f "$AMALGAMATOR/.venv/bin/python" ] || die "amalgamator venv missing at $AMALGAMATOR/.venv"
 [ -f "$MODEL_REGISTRY" ] || die "model registry missing: $MODEL_REGISTRY (copy models/models.example.yaml)"
-command -v bwrap >/dev/null || die "bubblewrap (bwrap) is required"
+
+image="localhost/bench/$case:1"
+"${PODMAN[@]}" image exists "$image" >/dev/null 2>&1 \
+  || die "[$case] image $image missing; run scripts/build-images.sh $case"
+
+py_bin="$(readlink -f "$AMALGAMATOR/.venv/bin/python")"
+[ -x "$py_bin" ] || die "cannot resolve the venv interpreter"
+py_root="$(dirname "$(dirname "$py_bin")")"
+py_home="$(dirname "$py_root")"
 
 "$BENCH_DIR/scripts/verify-no-leak.sh" "$case" >/dev/null \
   || die "[$case] pack failed the leak check"
@@ -47,51 +56,47 @@ for _ in $(seq 1 50); do [ -S "$run/llm.sock" ] && break; sleep 0.1; done
 [ -S "$run/llm.sock" ] || die "[$case] proxy did not start"
 
 start=$(date +%s)
+name="bench-$case-$$"
 set +e
-bwrap --die-with-parent --new-session \
-  --unshare-user --uid 0 --gid 0 \
-  --unshare-net --unshare-pid --unshare-ipc --unshare-uts \
-  --cap-add CAP_NET_ADMIN --cap-add CAP_NET_BIND_SERVICE \
-  --ro-bind /usr /usr --ro-bind /bin /bin --ro-bind /sbin /sbin \
-  --ro-bind /lib /lib --ro-bind /lib64 /lib64 \
-  --ro-bind /etc /etc --ro-bind "$run/hosts" /etc/hosts \
-  --ro-bind "$UV_PYTHON_HOME" "$UV_PYTHON_HOME" \
-  --ro-bind "$TOOLCHAINS" "$TOOLCHAINS" \
-  --ro-bind "$W8HW_ENV" "$W8HW_ENV" \
-  --ro-bind "$AMALGAMATOR" /app \
-  --ro-bind "$BENCH_DIR/cases/$case" /case \
-  --ro-bind "$run/models.yaml" /run/models.yaml \
-  --ro-bind "$run/tools" /tools \
-  --ro-bind "$run/llm.sock" /run/llm.sock \
-  --bind "$run" /work \
-  --tmpfs /tmp --proc /proc --dev /dev \
-  --setenv HOME /work/home \
-  --setenv TMPDIR /work/tmp \
-  --setenv PYTHONPATH /app \
-  --setenv PYTHONDONTWRITEBYTECODE 1 \
-  --setenv LITELLM_LOCAL_MODEL_COST_MAP True \
-  --setenv GIT_CONFIG_GLOBAL /work/home/.gitconfig \
-  --setenv GIT_CONFIG_SYSTEM /dev/null \
-  --setenv BACKPORT_REPOS /work/work/repo \
-  --setenv BACKPORT_WORK /work/work \
-  --setenv TOOLCHAINS "$TOOLCHAINS" \
-  --setenv W8HW_ENV "$W8HW_ENV" \
-  --setenv UV_PYTHON_HOME "$UV_PYTHON_HOME" \
-  --chdir /work/cwd \
+"${PODMAN[@]}" run --name "$name" \
+  --network=none \
+  "${PODMAN_RUN_OPTS[@]}" \
+  --read-only --tmpfs /tmp --tmpfs /run \
+  -v "$run:/work:rw" \
+  -v "$AMALGAMATOR:/app:ro" \
+  -v "$BENCH_DIR/cases/$case:/case:ro" \
+  -v "$run/models.yaml:/models.yaml:ro" \
+  -v "$run/tools:/tools:ro" \
+  -v "$run/hosts:/etc/hosts:ro" \
+  -v "$run/llm.sock:/llm.sock" \
+  -v "$py_home:$py_home:ro" \
+  -e HOME=/work/home \
+  -e TMPDIR=/work/tmp \
+  -e PYTHONPATH=/app \
+  -e PYTHONDONTWRITEBYTECODE=1 \
+  -e LITELLM_LOCAL_MODEL_COST_MAP=True \
+  -e GIT_CONFIG_GLOBAL=/work/home/.gitconfig \
+  -e GIT_CONFIG_SYSTEM=/dev/null \
+  -e BACKPORT_REPOS=/work/work/repo \
+  -e BACKPORT_WORK=/work/work \
+  -e PY_BIN="$py_bin" \
+  -w /work/cwd \
+  "$image" \
   /bin/sh -c '
     set -e
-    ip link set lo up
-    python3 /tools/forwarder.py --listen 443 --unix /run/llm.sock &
+    "$PY_BIN" /tools/forwarder.py --listen 443 --unix /llm.sock &
     fwd=$!
     sleep 0.5
     set +e
     /app/.venv/bin/python -m auto_bug_fix.run_bug_fix \
-        --models /run/models.yaml /case/case.yaml
+        --models /models.yaml /case/case.yaml
     rc=$?
     kill "$fwd" 2>/dev/null || true
     exit "$rc"
   ' 2>&1 | tee "$run/run.log"
 rc=${PIPESTATUS[0]}
+"${PODMAN[@]}" inspect "$name" >"$run/container.json" 2>/dev/null || true
+"${PODMAN[@]}" rm -f "$name" >/dev/null 2>&1 || true
 set -e
 end=$(date +%s)
 echo "$((end - start))" > "$run/wall_s"

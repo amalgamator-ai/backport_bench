@@ -1,11 +1,11 @@
 /* Sandbox accommodations for rsync's test suite.
  *
- * The benchmark sandbox runs the pipeline in a bubblewrap user namespace that
- * maps a single uid/gid, so:
- *   - the kernel denies setgroups(2) with EPERM, which rsync's daemon treats
- *     as fatal (on a real host the daemon runs as root and setgroups succeeds);
- *   - supplementary gids that are not mapped appear as the overflow gid 65534,
- *     and chgrp(1) on that gid fails, which breaks the chgrp test's setup.
+ * Tests run in an unprivileged container whose uid/gid mapping may deny
+ * setgroups(2) or expose unmapped groups as the overflow gid:
+ *   - rsync's daemon treats a setgroups EPERM as fatal (on a root host it
+ *     succeeds), so the call is accepted here;
+ *   - chgrp(1) on the overflow gid fails, which breaks the chgrp test's setup,
+ *     so the overflow gid is hidden from getgroups().
  *
  * These shims emulate the ordinary host outcome for the privilege-dropping and
  * group-listing calls only. They do not touch rsync logic or any file content

@@ -12,7 +12,7 @@ fix:
   commit: c9188d333717d3ceb7e3020011651f424f749f93
 build:
   command: |
-    export PATH=${W8HW_ENV}/env/bin:$PATH; mkdir -p build && cd build && ([ -f config.status ] || ../configure --prefix="$PWD/install" --disable-werror --without-selinux) && make -j$(nproc) > make.log 2>&1; rc=$?; if [ "$rc" -ne 0 ] && ! grep -q 'undefined reference to .xdecrypt.' make.log; then tail -40 make.log; exit "$rc"; fi
+    export PATH=/usr/bin:$PATH; mkdir -p build && cd build && ([ -f config.status ] || ../configure --prefix="$PWD/install" --disable-werror --without-selinux) && make -j$(nproc) > make.log 2>&1; rc=$?; if [ "$rc" -ne 0 ] && ! grep -q 'undefined reference to .xdecrypt.' make.log; then tail -40 make.log; exit "$rc"; fi
   test_command: |
     cd build && rm -f malloc/tst-malloc-too-large && make -C . subdirs=malloc tests -k CFLAGS-tst-malloc-too-large.c=-O0 > tests.log 2>&1; ./testrun.sh malloc/tst-malloc-too-large
 advanced:

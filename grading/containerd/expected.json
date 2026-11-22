@@ -4,14 +4,16 @@
   "human_backport": null,
   "reference_runs": [
     {
-      "date": "20261120",
+      "date": "20261121",
       "outcome": "success",
-      "wall_s": 605,
-      "input_tokens": 1398350,
-      "output_tokens": 43819,
+      "wall_s": 519,
+      "input_tokens": 1477421,
+      "output_tokens": 52057,
       "audit": "PASS",
       "model": "deepseek-v41-flash",
-      "reasoning_effort": "medium"
+      "reasoning_effort": "medium",
+      "environment": "container",
+      "image": "localhost/bench/containerd:1"
     }
   ]
 }

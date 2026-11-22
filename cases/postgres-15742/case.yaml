@@ -17,14 +17,12 @@ branches:
 fix:
   commit: 918683d12d849a514cd38056aab882322c74adb4
 build:
-  command: export PATH=${TOOLCHAINS}/rpmroot/usr/bin:${TOOLCHAINS}/bin:$PATH; export
-    BISON_PKGDATADIR=${TOOLCHAINS}/rpmroot/usr/share/bison; export M4=${TOOLCHAINS}/rpmroot/usr/bin/m4;
-    export PERL5LIB=${TOOLCHAINS}/perl5lib/usr/share/perl5/vendor_perl:${TOOLCHAINS}/perl5lib/usr/share/perl5:${TOOLCHAINS}/perl5lib/usr/lib64/perl5/vendor_perl:${TOOLCHAINS}/perl5lib/usr/lib64/perl5;
+  command: export PATH=/usr/bin:$PATH; export
+    BISON_PKGDATADIR=/usr/share/bison; export M4=/usr/bin/m4;
     if [ ! -f GNUmakefile ]; then ./configure --without-readline --without-zlib --prefix="$PWD/../pg-inst";
     fi; make -j8
-  test_command: export PATH=${TOOLCHAINS}/rpmroot/usr/bin:${TOOLCHAINS}/bin:$PATH; export
-    BISON_PKGDATADIR=${TOOLCHAINS}/rpmroot/usr/share/bison; export M4=${TOOLCHAINS}/rpmroot/usr/bin/m4;
-    export PERL5LIB=${TOOLCHAINS}/perl5lib/usr/share/perl5/vendor_perl:${TOOLCHAINS}/perl5lib/usr/share/perl5:${TOOLCHAINS}/perl5lib/usr/lib64/perl5/vendor_perl:${TOOLCHAINS}/perl5lib/usr/lib64/perl5;
+  test_command: export PATH=/usr/bin:$PATH; export
+    BISON_PKGDATADIR=/usr/share/bison; export M4=/usr/bin/m4;
     make -C contrib/fuzzystrmatch check
 model: deepseek-v41-flash
 advanced:

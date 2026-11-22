@@ -7,9 +7,7 @@ AMALGAMATOR="${AMALGAMATOR:-$BENCH_DIR/../amalgamator}"
 MODEL_REGISTRY="${MODEL_REGISTRY:-$BENCH_DIR/models/models.local.yaml}"
 RESULTS="${RESULTS:-$BENCH_DIR/results}"
 TOOLCHAINS="${TOOLCHAINS:-$HOME/toolchains}"
-W8HW_ENV="${W8HW_ENV:-$HOME/w8hw-tools}"
-UV_PYTHON_HOME="${UV_PYTHON_HOME:-$HOME/.local}"
-export TOOLCHAINS W8HW_ENV UV_PYTHON_HOME
+export TOOLCHAINS
 
 log() { printf '%s %s\n' "$(date +%H:%M:%S)" "$*" >&2; }
 die() { log "ERROR: $*"; exit 1; }

@@ -3,3 +3,5 @@ results/
 models/models.local.yaml
 cases/*/repo.git
 __pycache__/
+.podman/
+images.lock.json

@@ -10,12 +10,14 @@
     {
       "date": "20261121",
       "outcome": "success",
-      "wall_s": 327,
-      "input_tokens": 322383,
-      "output_tokens": 15573,
+      "wall_s": 380,
+      "input_tokens": 344631,
+      "output_tokens": 18342,
       "audit": "PASS",
       "model": "deepseek-v41-flash",
-      "reasoning_effort": "medium"
+      "reasoning_effort": "medium",
+      "environment": "container",
+      "image": "localhost/bench/rsync:1"
     }
   ]
 }
