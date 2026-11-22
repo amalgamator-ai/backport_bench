@@ -18,7 +18,6 @@ cases/<name>/repo.git    sanitized pack, built from public refs (gitignored)
 cases/<name>/fix.patch   fix as a patch (patch-mode cases only)
 scripts/                 images, build, verify, render, run, audit, summarize
 models/                  registry template; models.local.yaml is yours (gitignored)
-grading/<name>/          human fix + reference numbers (never mounted)
 results/                 run artifacts (gitignored)
 cache/                   full upstream mirrors, one per repo (gitignored)
 ```
@@ -144,11 +143,11 @@ the model registry, disk) and then runs each case's own
 Each run happens in that case's own container:
 
 - image: `localhost/bench/<case>:1`, whose only content is public toolchains;
-  the project, pack, grading data and results are never part of the image;
+  the project, pack, results and cache are never part of the image;
 - filesystem: read-only root, with only the sanitized pack copy, a fresh
   workspace, the amalgamator checkout, the rendered case input at
   `cases/<case>/run`, the model registry and the model socket mounted;
-  `grading/`, `cache/`, `results/` and `$HOME` are not visible;
+  `cache/`, `results/` and `$HOME` are not visible;
 - network: `--network=none`; the model is reached through a Unix socket to a
   host-side TLS pass-through proxy, so no upstream host or DNS is reachable;
 - after the run, `audit-run.sh` scans the transcript for `git fetch`, `curl`,
@@ -222,10 +221,11 @@ when building the two bases.
 4. Add `cases/<name>/Containerfile` (`FROM localhost/bench-tools:1` or
    `bench-go:1`, copy and run `check-prereqs.sh`) and a `.containerignore`
    that keeps the pack and case data out of the build context.
-5. `./scripts/build-case.sh <name>` — builds the pack and lock, runs the leak
-   check and renders `cases/<name>/run/`.
+5. `./scripts/build-case.sh <name>` — builds the pack, runs the leak check and
+   discovery guard, then renders `cases/<name>/run/`.
 6. `./scripts/build-images.sh <name>` and `./scripts/check-prereqs.sh <name>`.
-7. `./scripts/run-case.sh <name>`; record reference numbers in `grading/`.
+7. `./scripts/run-case.sh <name>`, then `./scripts/summarize.py` to compare the
+   run against the other cases in `results/summary.csv`.
 
 Cases share the `bench-tools` or `bench-go` base; add steps to the case's
 Containerfile only when it requires extra packages (that build step then needs
