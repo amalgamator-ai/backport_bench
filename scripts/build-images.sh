@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# Build the per-case container images.
+# Build the container images.
 #
-# Two shared bases are built once: bench-tools (Fedora: gcc/make/autotools/
-# bison/flex/cmake/tcl/php build deps) and bench-go (golang:1.25 + the x/crypto
-# module cache). Every case gets its own image tag bench/<case>:1 pointing at
-# one of those bases; case/check-prereqs.sh runs inside it.
+# Two shared toolchain bases are built once (network required for the dnf
+# install): bench-tools (Fedora: gcc/make/autotools/bison/flex/cmake/tcl/php
+# build deps) and bench-go (golang:1.25 + the x/crypto module cache). Every
+# case is then built from its own cases/<case>/Containerfile, which starts
+# FROM one of those bases and runs the case's check-prereqs.sh as a build
+# step, producing a distinct localhost/bench/<case>:1 image.
 #
 # Usage: build-images.sh [--force] [case...]
 set -euo pipefail
@@ -83,7 +85,12 @@ declare -A built=()
 for c in "${cases[@]}"; do
   if [[ "$go_cases" == *" $c "* ]]; then base="$GO_IMAGE"; else base="$TOOLS_IMAGE"; fi
   case_image="localhost/bench/$c:1"
-  "${PODMAN[@]}" tag "$base" "$case_image"
+  containerfile="$BENCH_DIR/cases/$c/Containerfile"
+  [ -f "$containerfile" ] || die "[$c] missing $containerfile"
+  # Offline build: the base already exists and the case Containerfile only
+  # copies and runs check-prereqs.sh, so nothing may be fetched.
+  "${PODMAN[@]}" build -q --pull=never --network=none \
+    -f "$containerfile" -t "$case_image" "$BENCH_DIR/cases/$c" >/dev/null
   built["$c"]="$case_image"
   printf '%-16s %s\n' "$c" "$case_image"
 done

@@ -1,0 +1,5 @@
+FROM localhost/bench-go:1
+LABEL org.amalgamator.bench.case="runc"
+LABEL org.amalgamator.bench.base="localhost/bench-go:1"
+COPY check-prereqs.sh /usr/local/bin/bench-check-prereqs
+RUN /usr/local/bin/bench-check-prereqs

@@ -12,6 +12,7 @@ see it locally and cannot fetch it from the network.
 refs/cases.json          public upstream URL + pinned SHAs per case
 cases/<name>/case.yaml   pipeline config (image paths)
 cases/<name>/check-prereqs.sh  checks run inside the case image
+cases/<name>/Containerfile     per-case image build (FROM a shared base)
 cases/<name>/repo.git    sanitized pack, built from public refs (gitignored)
 cases/<name>/fix.patch   fix as a patch (patch-mode cases only)
 scripts/                 images, build, verify, run, audit, summarize
@@ -85,11 +86,13 @@ cd ~/work/backport_bench
 ./scripts/build-images.sh
 ```
 
-Two shared bases are built once (network needed): `bench-tools` (Fedora with
-gcc/make/autotools/bison/flex/cmake/Tcl plus the PHP and glibc build deps) and
-`bench-go` (golang:1.25 with the x/crypto module cache). Each case then gets
-its own tag `localhost/bench/<case>:1`. Re-run with `--force` after changing a
-base.
+Two shared toolchain bases are built once (network needed): `bench-tools`
+(Fedora with gcc/make/autotools/bison/flex/cmake/Tcl plus the PHP and glibc
+build deps) and `bench-go` (golang:1.25 with the x/crypto module cache). Every
+case is then built from its own `cases/<case>/Containerfile`, which starts
+`FROM` one of those bases, copies the case's `check-prereqs.sh` and runs it, so
+prerequisites are validated at build time and each case gets its own image ID.
+Rebuild with `--force` after changing a base or a `check-prereqs.sh`.
 
 ### 5. Build the case packs
 
@@ -184,15 +187,17 @@ they do not modify the project under test or the files the tests compare.
 
 | image | built from | used by |
 |---|---|---|
-| `localhost/bench-tools:1` | `fedora:44` + dnf build tools + Tcl 8.6 | C, autotools, PHP, glibc, PostgreSQL, CPython, Valkey, PCRE2 cases |
-| `localhost/bench-go:1` | `golang:1.25` + `golang.org/x` module cache | runc, containerd, Kubernetes, golang.org/x/crypto |
-| `localhost/bench/<case>:1` | tag of one of the above | that case only |
+| `localhost/bench-tools:1` | `fedora:44` + dnf build tools + Tcl 8.6 | base for the C, autotools, PHP, glibc, PostgreSQL, CPython, Valkey and PCRE2 cases |
+| `localhost/bench-go:1` | `golang:1.25` + `golang.org/x` module cache | base for runc, containerd, Kubernetes and golang.org/x/crypto |
+| `localhost/bench/<case>:1` | `cases/<case>/Containerfile`, which starts `FROM` its base and runs `check-prereqs.sh` | that case only |
 
-`scripts/build-images.sh` records image IDs in `images.lock.json`. The only
-host paths a run mounts are the amalgamator checkout, the case directory, the
-run directory and the uv Python installation that backs the venv; there are no
-host toolchains to configure. `TOOLCHAINS` (default `$HOME/toolchains`) is used
-only when building `bench-go` and when copying Tcl 8.6 into `bench-tools`.
+Layers are shared with the base, so all case images together still take about
+2 GB. `scripts/build-images.sh` builds offline (`--pull=never --network=none`)
+and records the resulting image IDs in `images.lock.json`. The only host paths
+a run mounts are the amalgamator checkout, the case directory, the run
+directory and the uv Python installation that backs the venv; there are no host
+toolchains to configure. `TOOLCHAINS` (default `$HOME/toolchains`) is used only
+when building the two bases.
 
 ## Adding a case
 
@@ -205,9 +210,13 @@ only when building `bench-go` and when copying Tcl 8.6 into `bench-tools`.
    that use image paths only.
 4. Add `cases/<name>/check-prereqs.sh` (runs inside the image; exit non-zero
    and print `missing: ...` when a tool is absent).
-5. `./scripts/build-case.sh <name>` and fix anything the leak check reports.
-6. `./scripts/build-images.sh <name>` and `./scripts/check-prereqs.sh <name>`.
-7. `./scripts/run-case.sh <name>`; record reference numbers in `grading/`.
+5. Add `cases/<name>/Containerfile` (`FROM localhost/bench-tools:1` or
+   `bench-go:1`, copy and run `check-prereqs.sh`) and a `.containerignore`
+   that keeps the pack and case data out of the build context.
+6. `./scripts/build-case.sh <name>` and fix anything the leak check reports.
+7. `./scripts/build-images.sh <name>` and `./scripts/check-prereqs.sh <name>`.
+8. `./scripts/run-case.sh <name>`; record reference numbers in `grading/`.
 
-Cases share the `bench-tools` or `bench-go` base; no Dockerfile is needed
-unless a case requires extra packages.
+Cases share the `bench-tools` or `bench-go` base; add steps to the case's
+Containerfile only when it requires extra packages (that build step then needs
+network access).
