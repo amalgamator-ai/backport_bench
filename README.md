@@ -11,6 +11,7 @@ see it locally and cannot fetch it from the network.
 ```
 cases/<name>/case.yaml   single config: bench: (refs, fix, forbidden backports)
                          and pipeline: (issue, build/test, advanced, model)
+cases/<name>/human/      recorded human backport + provenance (never mounted)
 cases/<name>/run/        generated from case.yaml; the only directory mounted (gitignored)
 cases/<name>/check-prereqs.sh  checks run inside the case image
 cases/<name>/Containerfile     per-case image build (FROM a shared base)
@@ -158,6 +159,47 @@ Each run happens in that case's own container:
 The model comes from `models/models.local.yaml`; keep
 `params.reasoning_effort: medium` for comparable results.
 
+### Human backport and comparison
+
+Each case records the human backport that later landed on the target branch,
+so the AI result can be compared against it:
+
+```bash
+./scripts/record-human.sh all --check
+./scripts/compare-all.sh                 # every case with a run
+./scripts/compare-case.sh valkey results/valkey/<timestamp>
+```
+
+`record-human.sh` derives `cases/<name>/human/human.patch` and `human.json`
+from the local `cache/` mirror, using `bench.human`:
+
+- `mode: commits` — the backport commits (from `human.commits`, else
+  `bench.forbidden`) that were merged into the target branch;
+- `mode: none` — no human backport exists (pcre2, golang-crypto, php81); the
+  comparison then uses the upstream fix commit as the reference.
+
+The patch carries a header per commit, the commit list, file list, hashes and
+whether it applies cleanly to the target cut. `cases/<name>/human/` is never
+mounted into a run container (only `cases/<name>/run/` is), and the render and
+pre-mount checks fail if any human-backport line would appear in the rendered
+input.
+
+`compare-case.sh` / `compare-all.sh` run on the host after the container exits
+and ask the model to compare the AI `candidate.patch` with the reference: same
+bug fixed, mechanism, completeness, extra changes, test coverage, risks and a
+verdict with confidence. Inputs include both diffs, the reference's file stat
+and the target-cut code for the files the AI touched. Output:
+
+```
+results/<case>/<timestamp>/comparison.json   structured verdict
+results/<case>/<timestamp>/comparison.md     human-readable report
+results/comparison.csv                       one row per judged case
+```
+
+The judge uses the registry's default profile; set `JUDGE_PROFILE` (or pass
+`--profile`) to use a dedicated profile, e.g. a stronger model with
+`temperature: 0`.
+
 ### Container test shims
 
 A few test suites need root-like uid/gid behaviour. These shims keep them
@@ -212,10 +254,11 @@ when building the two bases.
 1. Find the public fix commit and the target branch commit before the human
    backport (or before the fix).
 2. Create `cases/<name>/case.yaml` with a `bench:` section (upstream URL,
-   source/target SHA, fix kind, optional `target.upstream_branch` and
-   `forbidden` human-backport SHAs) and a `pipeline:` section (issue id,
-   description, build/test commands using image paths only, advanced flags).
-   Do not repeat repository, branch or fix fields there — they are derived.
+   source/target SHA, fix kind, optional `target.upstream_branch`, `forbidden`
+   human-backport SHAs and `human: {mode: commits|none}`) and a `pipeline:`
+   section (issue id, description, build/test commands using image paths only,
+   advanced flags). Do not repeat repository, branch or fix fields there —
+   they are derived.
 3. Add `cases/<name>/check-prereqs.sh` (runs inside the image; exit non-zero
    and print `missing: ...` when a tool is absent).
 4. Add `cases/<name>/Containerfile` (`FROM localhost/bench-tools:1` or
@@ -223,9 +266,11 @@ when building the two bases.
    that keeps the pack and case data out of the build context.
 5. `./scripts/build-case.sh <name>` — builds the pack, runs the leak check and
    discovery guard, then renders `cases/<name>/run/`.
-6. `./scripts/build-images.sh <name>` and `./scripts/check-prereqs.sh <name>`.
-7. `./scripts/run-case.sh <name>`, then `./scripts/summarize.py` to compare the
-   run against the other cases in `results/summary.csv`.
+6. `./scripts/record-human.sh <name> --check` — records `cases/<name>/human/`.
+7. `./scripts/build-images.sh <name>` and `./scripts/check-prereqs.sh <name>`.
+8. `./scripts/run-case.sh <name>`, then `./scripts/summarize.py` for the run
+   table and `./scripts/compare-case.sh <name> <run>` for the AI-vs-human
+   comparison.
 
 Cases share the `bench-tools` or `bench-go` base; add steps to the case's
 Containerfile only when it requires extra packages (that build step then needs

@@ -1,0 +1,372 @@
+# human backport 53f77f1db9752c233ecd8898127c2855e9ff261d (2026-10-26) kubeadm: fix etcd data rollback and retry the etcd backup
+diff --git a/cmd/kubeadm/app/phases/upgrade/staticpods.go b/cmd/kubeadm/app/phases/upgrade/staticpods.go
+index ec519c90cb9..886e0bda95f 100644
+--- a/cmd/kubeadm/app/phases/upgrade/staticpods.go
++++ b/cmd/kubeadm/app/phases/upgrade/staticpods.go
+@@ -17,6 +17,7 @@ limitations under the License.
+ package upgrade
+ 
+ import (
++	"context"
+ 	"fmt"
+ 	"os"
+ 	"path/filepath"
+@@ -25,6 +26,7 @@ import (
+ 
+ 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+ 	"k8s.io/apimachinery/pkg/util/version"
++	"k8s.io/apimachinery/pkg/util/wait"
+ 	clientset "k8s.io/client-go/kubernetes"
+ 	"k8s.io/klog/v2"
+ 
+@@ -296,9 +298,30 @@ func performEtcdStaticPodUpgrade(certsRenewMgr *renewal.Manager, client clientse
+ 	// Backing up etcd data store
+ 	backupEtcdDir := pathMgr.BackupEtcdDir()
+ 	runningEtcdDir := cfg.Etcd.Local.DataDir
+-	output, err := kubeadmutil.CopyDir(runningEtcdDir, backupEtcdDir)
++	var (
++		attempt   int
++		lastError error
++	)
++	err = wait.PollUntilContextTimeout(context.Background(), time.Second, 30*time.Second, true,
++		func(_ context.Context) (bool, error) {
++			attempt++
++			klog.V(2).Infof("[upgrade/etcd] Backing up etcd data, attempt %d", attempt)
++			if err := os.RemoveAll(backupEtcdDir); err != nil {
++				lastError = errors.Wrapf(err, "could not clear the etcd backup dir %s", backupEtcdDir)
++				return false, lastError
++			}
++			if err := os.Mkdir(backupEtcdDir, 0700); err != nil {
++				lastError = errors.Wrapf(err, "could not create the etcd backup dir %s", backupEtcdDir)
++				return false, lastError
++			}
++			lastError = kubeadmutil.CopyDir(runningEtcdDir, backupEtcdDir)
++			return lastError == nil, nil
++		})
+ 	if err != nil {
+-		return true, errors.Wrapf(err, "failed to back up etcd data, output: %q", output)
++		if lastError != nil {
++			err = lastError
++		}
++		return true, errors.Wrapf(err, "failed to back up etcd data after %d attempts", attempt)
+ 	}
+ 
+ 	// Get the desired etcd version. That's either the one specified by the user in cfg.Etcd.Local.ImageTag
+@@ -561,10 +584,18 @@ func rollbackEtcdData(cfg *kubeadmapi.InitConfiguration, pathMgr StaticPodPathMa
+ 	backupEtcdDir := pathMgr.BackupEtcdDir()
+ 	runningEtcdDir := cfg.Etcd.Local.DataDir
+ 
+-	output, err := kubeadmutil.CopyDir(backupEtcdDir, runningEtcdDir)
+-	if err != nil {
+-		// Let the user know there we're problems, but we tried to reçover
+-		return errors.Wrapf(err, "couldn't recover etcd database with error, the location of etcd backup: %s, output: %q", backupEtcdDir, output)
++	// Clearing the live member dir is only safe if there is a backup to restore it from.
++	if _, err := os.Stat(filepath.Join(backupEtcdDir, "member")); err != nil {
++		return errors.Wrapf(err, "will not roll back the etcd data dir, no member dir in the etcd backup: %s", backupEtcdDir)
++	}
++
++	// Files etcd wrote after the backup must not survive the rollback.
++	if err := os.RemoveAll(filepath.Join(runningEtcdDir, "member")); err != nil {
++		return errors.Wrapf(err, "could not clear the etcd member dir in %s", runningEtcdDir)
++	}
++
++	if err := kubeadmutil.CopyDir(backupEtcdDir, runningEtcdDir); err != nil {
++		return errors.Wrapf(err, "couldn't recover etcd database with error, the location of etcd backup: %s", backupEtcdDir)
+ 	}
+ 
+ 	return nil
+diff --git a/cmd/kubeadm/app/phases/upgrade/staticpods_test.go b/cmd/kubeadm/app/phases/upgrade/staticpods_test.go
+index b73157d6c9f..f4ff6c3b67e 100644
+--- a/cmd/kubeadm/app/phases/upgrade/staticpods_test.go
++++ b/cmd/kubeadm/app/phases/upgrade/staticpods_test.go
+@@ -1033,3 +1033,77 @@ spec:
+ 		t.Errorf("unexpected result:\n\tgot: %q\n\texpected: %q", got, expectedEtcdVersion)
+ 	}
+ }
++
++func TestRollbackEtcdData(t *testing.T) {
++	tests := []struct {
++		name         string
++		backupMember bool
++		wantErr      bool
++	}{
++		{
++			name:         "the backup is restored and files written after it are dropped",
++			backupMember: true,
++		},
++		{
++			name:    "a backup without a member dir leaves the live data dir alone",
++			wantErr: true,
++		},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			tmp := t.TempDir()
++			dataDir := filepath.Join(tmp, "etcd")
++			backupDir := filepath.Join(tmp, "kubeadm-backup-etcd")
++			live := filepath.Join(dataDir, "member", "live")
++
++			if err := os.MkdirAll(filepath.Join(dataDir, "member"), 0700); err != nil {
++				t.Fatal(err)
++			}
++			if err := os.WriteFile(live, []byte("live"), 0600); err != nil {
++				t.Fatal(err)
++			}
++			if err := os.MkdirAll(backupDir, 0700); err != nil {
++				t.Fatal(err)
++			}
++			if tt.backupMember {
++				if err := os.MkdirAll(filepath.Join(backupDir, "member"), 0700); err != nil {
++					t.Fatal(err)
++				}
++				if err := os.WriteFile(filepath.Join(backupDir, "member", "db"), []byte("backup"), 0600); err != nil {
++					t.Fatal(err)
++				}
++			}
++
++			cfg := &kubeadmapi.InitConfiguration{
++				ClusterConfiguration: kubeadmapi.ClusterConfiguration{
++					Etcd: kubeadmapi.Etcd{
++						Local: &kubeadmapi.LocalEtcd{DataDir: dataDir},
++					},
++				},
++			}
++
++			err := rollbackEtcdData(cfg, &fakeStaticPodPathManager{backupEtcdDir: backupDir})
++			if (err != nil) != tt.wantErr {
++				t.Fatalf("rollbackEtcdData() error = %v, wantErr %v", err, tt.wantErr)
++			}
++
++			if tt.wantErr {
++				if _, err := os.Stat(live); err != nil {
++					t.Errorf("expected the live member dir to be untouched: %v", err)
++				}
++				return
++			}
++
++			if _, err := os.Stat(live); !os.IsNotExist(err) {
++				t.Errorf("expected files written after the backup not to survive, got: %v", err)
++			}
++			got, err := os.ReadFile(filepath.Join(dataDir, "member", "db"))
++			if err != nil {
++				t.Fatalf("expected the backup to be restored: %v", err)
++			}
++			if string(got) != "backup" {
++				t.Errorf("got %q, want %q", got, "backup")
++			}
++		})
++	}
++}
+diff --git a/cmd/kubeadm/app/util/copy.go b/cmd/kubeadm/app/util/copy.go
+index 88902b21018..954bb6ab452 100644
+--- a/cmd/kubeadm/app/util/copy.go
++++ b/cmd/kubeadm/app/util/copy.go
+@@ -18,7 +18,9 @@ package util
+ 
+ import (
+ 	"io"
++	"io/fs"
+ 	"os"
++	"path/filepath"
+ 	"strings"
+ 
+ 	"k8s.io/klog/v2"
+@@ -54,6 +56,28 @@ func CopyFile(src, dest string) error {
+ 	return err
+ }
+ 
++// CopyDir copies the content of a folder to dest, which is created if needed.
++func CopyDir(src, dest string) error {
++	return filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
++		if err != nil {
++			return err
++		}
++		rel, err := filepath.Rel(src, path)
++		if err != nil {
++			return err
++		}
++		target := filepath.Join(dest, rel)
++		if !d.IsDir() {
++			return CopyFile(path, target)
++		}
++		info, err := d.Info()
++		if err != nil {
++			return err
++		}
++		return os.MkdirAll(target, info.Mode().Perm())
++	})
++}
++
+ // MoveFile moves a file from src to dest.
+ func MoveFile(src, dest string) error {
+ 	err := os.Rename(src, dest)
+diff --git a/cmd/kubeadm/app/util/copy_test.go b/cmd/kubeadm/app/util/copy_test.go
+new file mode 100644
+index 00000000000..9fb21498411
+--- /dev/null
++++ b/cmd/kubeadm/app/util/copy_test.go
+@@ -0,0 +1,92 @@
++/*
++Copyright The Kubernetes Authors.
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
++
++package util
++
++import (
++	"os"
++	"path/filepath"
++	"testing"
++)
++
++func TestCopyDir(t *testing.T) {
++	t.Run("success", func(t *testing.T) {
++		tmp := t.TempDir()
++		srcDir := filepath.Join(tmp, "srcdir")
++		dstDir := filepath.Join(tmp, "dstdir")
++
++		if err := os.MkdirAll(srcDir, 0755); err != nil {
++			t.Fatalf("failed to create src dir: %v", err)
++		}
++		if err := os.WriteFile(filepath.Join(srcDir, "a.txt"), []byte("a"), 0644); err != nil {
++			t.Fatalf("failed to write file: %v", err)
++		}
++		if err := os.WriteFile(filepath.Join(srcDir, "b.txt"), []byte("b"), 0644); err != nil {
++			t.Fatalf("failed to write file: %v", err)
++		}
++
++		if err := CopyDir(srcDir, dstDir); err != nil {
++			t.Fatalf("CopyDir() error = %v", err)
++		}
++
++		got, err := os.ReadFile(filepath.Join(dstDir, "a.txt"))
++		if err != nil {
++			t.Fatalf("failed to read copied file: %v", err)
++		}
++		if string(got) != "a" {
++			t.Errorf("file a.txt content mismatch: got %q, want %q", got, "a")
++		}
++	})
++
++	t.Run("existing destination", func(t *testing.T) {
++		tmp := t.TempDir()
++		src := filepath.Join(tmp, "src")
++		dst := filepath.Join(tmp, "dst")
++		file := filepath.Join("member", "db")
++
++		if err := os.MkdirAll(filepath.Join(src, "member"), 0700); err != nil {
++			t.Fatal(err)
++		}
++		if err := os.WriteFile(filepath.Join(src, file), []byte("data"), 0600); err != nil {
++			t.Fatal(err)
++		}
++		if err := os.Mkdir(dst, 0700); err != nil {
++			t.Fatal(err)
++		}
++
++		if err := CopyDir(src, dst); err != nil {
++			t.Fatalf("CopyDir failed: %v", err)
++		}
++
++		content, err := os.ReadFile(filepath.Join(dst, file))
++		if err != nil {
++			t.Fatalf("expected the contents of src to be copied into dst: %v", err)
++		}
++		if string(content) != "data" {
++			t.Errorf("expected %q, got %q", "data", string(content))
++		}
++		if _, err := os.Stat(filepath.Join(dst, "src")); !os.IsNotExist(err) {
++			t.Errorf("expected src not to be nested in dst, got: %v", err)
++		}
++	})
++
++	t.Run("source does not exist", func(t *testing.T) {
++		tmp := t.TempDir()
++		if err := CopyDir(filepath.Join(tmp, "noexist"), filepath.Join(tmp, "dst")); err == nil {
++			t.Error("expected error for non-existent source, got nil")
++		}
++	})
++}
+diff --git a/cmd/kubeadm/app/util/copy_unix.go b/cmd/kubeadm/app/util/copy_unix.go
+deleted file mode 100644
+index 0d75b09dd0e..00000000000
+--- a/cmd/kubeadm/app/util/copy_unix.go
++++ /dev/null
+@@ -1,29 +0,0 @@
+-//go:build !windows
+-// +build !windows
+-
+-/*
+-Copyright 2017 The Kubernetes Authors.
+-
+-Licensed under the Apache License, Version 2.0 (the "License");
+-you may not use this file except in compliance with the License.
+-You may obtain a copy of the License at
+-
+-    http://www.apache.org/licenses/LICENSE-2.0
+-
+-Unless required by applicable law or agreed to in writing, software
+-distributed under the License is distributed on an "AS IS" BASIS,
+-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-See the License for the specific language governing permissions and
+-limitations under the License.
+-*/
+-
+-package util
+-
+-import (
+-	"os/exec"
+-)
+-
+-// CopyDir copies the content of a folder
+-func CopyDir(src string, dst string) ([]byte, error) {
+-	return exec.Command("cp", "-r", src, dst).CombinedOutput()
+-}
+diff --git a/cmd/kubeadm/app/util/copy_windows.go b/cmd/kubeadm/app/util/copy_windows.go
+deleted file mode 100644
+index e20f4f7b936..00000000000
+--- a/cmd/kubeadm/app/util/copy_windows.go
++++ /dev/null
+@@ -1,31 +0,0 @@
+-//go:build windows
+-// +build windows
+-
+-/*
+-Copyright 2022 The Kubernetes Authors.
+-
+-Licensed under the Apache License, Version 2.0 (the "License");
+-you may not use this file except in compliance with the License.
+-You may obtain a copy of the License at
+-
+-    http://www.apache.org/licenses/LICENSE-2.0
+-
+-Unless required by applicable law or agreed to in writing, software
+-distributed under the License is distributed on an "AS IS" BASIS,
+-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-See the License for the specific language governing permissions and
+-limitations under the License.
+-*/
+-
+-package util
+-
+-import (
+-	"os/exec"
+-)
+-
+-// CopyDir copies the content of a folder
+-func CopyDir(src string, dst string) ([]byte, error) {
+-	// /E Copies directories and subdirectories, including empty ones.
+-	// /H Copies hidden and system files also.
+-	return exec.Command("xcopy", "/E", "/H", src, dst).CombinedOutput()
+-}

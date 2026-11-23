@@ -1,0 +1,20 @@
+{
+  "case": "glibc",
+  "mode": "commits",
+  "base": "831299deb7618c86a0d5dec5e67dae05dfb98f05",
+  "reference": "human",
+  "commits": [
+    {
+      "sha": "f18446d7b4a423090ee5e328c36b3c2a0f26041c",
+      "date": "2026-01-15",
+      "subject": "memalign: reinstate alignment overflow check (CVE-2026-0861)"
+    }
+  ],
+  "files": [
+    "malloc/malloc.c",
+    "malloc/tst-malloc-too-large.c"
+  ],
+  "patch_sha256": "56880db95dad88138f89c2b610c737c4e991da9b69aa0971bbc0392698f1622d",
+  "added_lines_sha256": "920398980361cdb4d80373ba51603327b76f3a2f89db0abaf9dd8c2b55520875",
+  "applies_to_base": true
+}

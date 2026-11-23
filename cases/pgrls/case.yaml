@@ -1,5 +1,5 @@
 # Single source of truth for this benchmark case.
-# bench:    refs, fix and forbidden human backports; never mounted into a run.
+# bench:    refs, fix, forbidden human backports; never mounted into a run.
 # pipeline: rendered into cases/<case>/run/case.yaml and mounted at /case.
 bench:
   upstream: https://github.com/postgres/postgres.git
@@ -18,6 +18,8 @@ bench:
     sha: 315c4e4e85f3fae5ebc3a62d69b5400138d307f9
   forbidden:
   - 4167810cfe62d5ed4cf70a576a2eed87e2f246a8
+  human:
+    mode: commits
 pipeline:
   issue_id: PG-2026-11-view-row-visibility
   bug_description: |

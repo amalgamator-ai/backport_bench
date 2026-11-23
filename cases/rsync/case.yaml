@@ -1,5 +1,5 @@
 # Single source of truth for this benchmark case.
-# bench:    refs, fix and forbidden human backports; never mounted into a run.
+# bench:    refs, fix, forbidden human backports; never mounted into a run.
 # pipeline: rendered into cases/<case>/run/case.yaml and mounted at /case.
 bench:
   upstream: https://github.com/RsyncProject/rsync.git
@@ -18,6 +18,8 @@ bench:
   forbidden:
   - ac47b0136349405f6c7198a298d454bbb37d0855
   - 04338c6b93da2ba9f218eb920e7eeb345a341d5f
+  human:
+    mode: commits
 pipeline:
   issue_id: CVE-2026-29518-rsync-daemon-no-chroot
   bug_description: |

@@ -1,0 +1,745 @@
+# human backport 4167810cfe62d5ed4cf70a576a2eed87e2f246a8 (2026-11-09) Enforce view row visibility for INSERT ... ON CONFLICT target rows.
+diff --git a/doc/src/sgml/ref/create_view.sgml b/doc/src/sgml/ref/create_view.sgml
+index 4b5b1cf7953..eb252a6bb04 100644
+--- a/doc/src/sgml/ref/create_view.sgml
++++ b/doc/src/sgml/ref/create_view.sgml
+@@ -347,13 +347,18 @@ CREATE VIEW vista AS SELECT text 'Hello World' AS hello;
+     If an automatically updatable view contains a <literal>WHERE</literal>
+     condition, the condition restricts which rows of the base relation are
+     available to be modified by <command>UPDATE</command> and <command>DELETE</command>
+-    statements on the view.  However, an <command>UPDATE</command> is allowed to
++    statements on the view.  Likewise, an <command>INSERT</command> with an
++    <literal>ON CONFLICT DO UPDATE</literal> clause may only act on a
++    conflicting base-relation row that is visible through the view: if the
++    row does not satisfy the <literal>WHERE</literal> condition, or that of
++    any view that the view is defined on, an error is raised.  However, an
++    <command>UPDATE</command> or <command>INSERT</command> with an
++    <literal>ON CONFLICT DO UPDATE</literal> clause is allowed to
+     change a row so that it no longer satisfies the <literal>WHERE</literal>
+     condition, and thus is no longer visible through the view.  Similarly,
+     an <command>INSERT</command> command can potentially insert base-relation rows
+     that do not satisfy the <literal>WHERE</literal> condition and thus are not
+-    visible through the view (<literal>ON CONFLICT UPDATE</literal> may
+-    similarly affect an existing row not visible through the view).
++    visible through the view.
+     The <literal>CHECK OPTION</literal> may be used to prevent
+     <command>INSERT</command> and <command>UPDATE</command> commands from creating
+     such rows that are not visible through the view.
+diff --git a/src/backend/executor/execMain.c b/src/backend/executor/execMain.c
+index 5d6410480cd..eef1ac1138b 100644
+--- a/src/backend/executor/execMain.c
++++ b/src/backend/executor/execMain.c
+@@ -2071,6 +2071,12 @@ ExecWithCheckOptions(WCOKind kind, ResultRelInfo *resultRelInfo,
+ 							 val_desc ? errdetail("Failing row contains %s.",
+ 												  val_desc) : 0));
+ 					break;
++				case WCO_VIEW_CONFLICT_CHECK:
++					ereport(ERROR,
++							(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
++							 errmsg("conflicting row is not visible through view \"%s\"",
++									wco->relname)));
++					break;
+ 				case WCO_RLS_INSERT_CHECK:
+ 				case WCO_RLS_UPDATE_CHECK:
+ 					if (wco->polname != NULL)
+diff --git a/src/backend/executor/nodeModifyTable.c b/src/backend/executor/nodeModifyTable.c
+index 1ba2ee97a55..d0bedc76bb2 100644
+--- a/src/backend/executor/nodeModifyTable.c
++++ b/src/backend/executor/nodeModifyTable.c
+@@ -2315,6 +2315,15 @@ ExecOnConflictUpdate(ModifyTableState *mtstate,
+ 		 * but that's almost the extent of its special handling for ON
+ 		 * CONFLICT DO UPDATE.
+ 		 *
++		 * The rewriter also creates WCOs of "kind" WCO_VIEW_CONFLICT_CHECK
++		 * from the quals of any auto-updatable view the target relation was
++		 * reached through, so that the existing tuple must be visible through
++		 * each such view.  The checks run from the inside out: RLS first,
++		 * then each view's quals, innermost first (the rewriter lists them in
++		 * that order), and then finally the ON CONFLICT WHERE clause.  That
++		 * way a view's quals never see a row that the base relation or an
++		 * inner view hides, and the WHERE clause won't either.
++		 *
+ 		 * The rewriter will also have associated UPDATE applicable straight
+ 		 * RLS checks/WCOs for the benefit of the ExecUpdate() call that
+ 		 * follows.  INSERTs and UPDATEs naturally have mutually exclusive WCO
+@@ -2324,6 +2333,9 @@ ExecOnConflictUpdate(ModifyTableState *mtstate,
+ 		ExecWithCheckOptions(WCO_RLS_CONFLICT_CHECK, resultRelInfo,
+ 							 existing,
+ 							 mtstate->ps.state);
++		ExecWithCheckOptions(WCO_VIEW_CONFLICT_CHECK, resultRelInfo,
++							 existing,
++							 mtstate->ps.state);
+ 	}
+ 
+ 	/*
+diff --git a/src/backend/rewrite/rewriteHandler.c b/src/backend/rewrite/rewriteHandler.c
+index 00d988a5fa3..097c48ab069 100644
+--- a/src/backend/rewrite/rewriteHandler.c
++++ b/src/backend/rewrite/rewriteHandler.c
+@@ -3660,12 +3660,19 @@ rewriteTargetView(Query *parsetree, Relation view)
+ 	/*
+ 	 * For INSERT/UPDATE, if the view has the WITH CHECK OPTION, or any parent
+ 	 * view specified WITH CASCADED CHECK OPTION, add the quals from the view
+-	 * to the query's withCheckOptions list.
++	 * to the query's withCheckOptions list.  For INSERT ... ON CONFLICT DO
++	 * UPDATE, add them to the list as a check on the existing row as well,
++	 * whether or not the view has a check option.  (Using a WithCheckOption
++	 * for a view that has none is a bit unorthodox, but it's a good fit for
++	 * ON CONFLICT.  Unlike with a plain UPDATE, we need to throw an error
++	 * when there's a conflicting row that doesn't belong in the target view.)
+ 	 */
+ 	if (parsetree->commandType != CMD_DELETE)
+ 	{
+ 		bool		has_wco = RelationHasCheckOption(view);
+ 		bool		cascaded = RelationHasCascadedCheckOption(view);
++		bool		do_conflict_check = parsetree->onConflict &&
++			parsetree->onConflict->action == ONCONFLICT_UPDATE;
+ 
+ 		/*
+ 		 * If the parent view has a cascaded check option, treat this view as
+@@ -3688,32 +3695,23 @@ rewriteTargetView(Query *parsetree, Relation view)
+ 		}
+ 
+ 		/*
+-		 * Add the new WithCheckOption to the start of the list, so that
++		 * New WithCheckOptions are added to the start of the list, so that
+ 		 * checks on inner views are run before checks on outer views, as
+-		 * required by the SQL standard.
++		 * required by the SQL standard.  When there is an ON CONFLICT check,
++		 * it is prepended first, so that any real check option ends up at the
++		 * head of the list, where the parent-cascade check above expects it.
+ 		 *
+-		 * If the new check is CASCADED, we need to add it even if this view
+-		 * has no quals, since there may be quals on child views.  A LOCAL
+-		 * check can be omitted if this view has no quals.
++		 * Nothing is added when this view has no quals, except for a CASCADED
++		 * check option, which is needed even then, since there may be quals
++		 * on child views.
+ 		 */
+-		if (has_wco && (cascaded || viewquery->jointree->quals != NULL))
++		if ((has_wco || do_conflict_check) &&
++			(cascaded || viewquery->jointree->quals != NULL))
+ 		{
+-			WithCheckOption *wco;
+-
+-			wco = makeNode(WithCheckOption);
+-			wco->kind = WCO_VIEW_CHECK;
+-			wco->relname = pstrdup(RelationGetRelationName(view));
+-			wco->polname = NULL;
+-			wco->qual = NULL;
+-			wco->cascaded = cascaded;
+-
+-			parsetree->withCheckOptions = lcons(wco,
+-												parsetree->withCheckOptions);
+-
+ 			if (viewquery->jointree->quals != NULL)
+ 			{
+-				wco->qual = (Node *) viewquery->jointree->quals;
+-				ChangeVarNodes(wco->qual, base_rt_index, new_rt_index, 0);
++				ChangeVarNodes(viewquery->jointree->quals,
++							   base_rt_index, new_rt_index, 0);
+ 
+ 				/*
+ 				 * Make sure that the query is marked correctly if the added
+@@ -3724,7 +3722,41 @@ rewriteTargetView(Query *parsetree, Relation view)
+ 				 */
+ 				if (!parsetree->hasSubLinks &&
+ 					parsetree->commandType != CMD_UPDATE)
+-					parsetree->hasSubLinks = checkExprHasSubLink(wco->qual);
++					parsetree->hasSubLinks =
++						checkExprHasSubLink(viewquery->jointree->quals);
++			}
++
++			/*
++			 * For INSERT ... ON CONFLICT DO UPDATE, the conflict action acts
++			 * on an existing row, which must be visible through the view
++			 */
++			if (do_conflict_check && viewquery->jointree->quals != NULL)
++			{
++				WithCheckOption *wco = makeNode(WithCheckOption);
++
++				wco->kind = WCO_VIEW_CONFLICT_CHECK;
++				wco->relname = pstrdup(RelationGetRelationName(view));
++				wco->polname = NULL;
++				/* Copy; WCO_VIEW_CHECK entry below owns the original quals */
++				wco->qual = copyObject(viewquery->jointree->quals);
++				wco->cascaded = false;
++
++				parsetree->withCheckOptions = lcons(wco,
++													parsetree->withCheckOptions);
++			}
++
++			if (has_wco)
++			{
++				WithCheckOption *wco = makeNode(WithCheckOption);
++
++				wco->kind = WCO_VIEW_CHECK;
++				wco->relname = pstrdup(RelationGetRelationName(view));
++				wco->polname = NULL;
++				wco->qual = viewquery->jointree->quals;
++				wco->cascaded = cascaded;
++
++				parsetree->withCheckOptions = lcons(wco,
++													parsetree->withCheckOptions);
+ 			}
+ 		}
+ 	}
+diff --git a/src/include/nodes/parsenodes.h b/src/include/nodes/parsenodes.h
+index 56872a0868f..d5592eb1856 100644
+--- a/src/include/nodes/parsenodes.h
++++ b/src/include/nodes/parsenodes.h
+@@ -1205,7 +1205,11 @@ typedef enum WCOKind
+ 	WCO_VIEW_CHECK,				/* WCO on an auto-updatable view */
+ 	WCO_RLS_INSERT_CHECK,		/* RLS INSERT WITH CHECK policy */
+ 	WCO_RLS_UPDATE_CHECK,		/* RLS UPDATE WITH CHECK policy */
+-	WCO_RLS_CONFLICT_CHECK		/* RLS ON CONFLICT DO UPDATE USING policy */
++	WCO_RLS_CONFLICT_CHECK,		/* RLS ON CONFLICT DO UPDATE USING policy */
++	WCO_VIEW_CONFLICT_CHECK		/* auto-updatable view's WHERE quals, checked
++								 * against the existing row by ON CONFLICT DO
++								 * UPDATE; neither a true WITH CHECK OPTION
++								 * check nor an RLS check */
+ } WCOKind;
+ 
+ typedef struct WithCheckOption
+diff --git a/src/test/regress/expected/rowsecurity.out b/src/test/regress/expected/rowsecurity.out
+index ef81883a4f5..68131892e50 100644
+--- a/src/test/regress/expected/rowsecurity.out
++++ b/src/test/regress/expected/rowsecurity.out
+@@ -2132,6 +2132,24 @@ INSERT INTO document VALUES (3, (SELECT cid from category WHERE cname = 'novel')
+     ON CONFLICT (did) DO UPDATE SET dtitle = EXCLUDED.dtitle
+     WHERE document.dlevel = 99 RETURNING did, dtitle;
+ ERROR:  new row violates row-level security policy (USING expression) for table "document"
++-- The USING policy clauses are checked before the WHERE quals of a view,
++-- as they are before the ON CONFLICT WHERE clause, so f_leak must not emit
++-- a NOTICE for an existing row that fails them
++CREATE VIEW leaky_document_view AS SELECT * FROM document WHERE f_leak(dtitle);
++INSERT INTO leaky_document_view VALUES (3, (SELECT cid from category WHERE cname = 'novel'), 1, 'regress_rls_bob', 'another novel')
++    ON CONFLICT (did) DO UPDATE SET dtitle = excluded.dtitle RETURNING did, dtitle;
++ERROR:  new row violates row-level security policy (USING expression) for table "document"
++-- The view's quals are evaluated against an existing row that passes the
++-- USING policy clauses, so f_leak does emit a NOTICE here, even though the
++-- ON CONFLICT WHERE clause then rejects the update
++INSERT INTO leaky_document_view VALUES (1, (SELECT cid from category WHERE cname = 'novel'), 1, 'regress_rls_bob', 'another novel')
++    ON CONFLICT (did) DO UPDATE SET dtitle = excluded.dtitle WHERE leaky_document_view.dlevel = 99 RETURNING did, dtitle;
++NOTICE:  f_leak => my first novel
++ did | dtitle 
++-----+--------
++(0 rows)
++
++DROP VIEW leaky_document_view;
+ --
+ -- ROLE/GROUP
+ --
+diff --git a/src/test/regress/expected/updatable_views.out b/src/test/regress/expected/updatable_views.out
+index 9e0fd6bba73..2861e3afb24 100644
+--- a/src/test/regress/expected/updatable_views.out
++++ b/src/test/regress/expected/updatable_views.out
+@@ -2246,6 +2246,38 @@ DROP TABLE base_tbl CASCADE;
+ NOTICE:  drop cascades to 2 other objects
+ DETAIL:  drop cascades to view rw_view1
+ drop cascades to view rw_view2
++-- INSERT .. ON CONFLICT through nested views: an inner security barrier
++-- view's quals are checked before an outer view's, as they are in a scan,
++-- so the outer view's quals are never evaluated against a row the inner
++-- view hides, only against a row it shows
++CREATE TABLE uv_upsert_hide_tab (id int PRIMARY KEY, secret int, vis boolean);
++INSERT INTO uv_upsert_hide_tab VALUES (1, 111, false), (2, 333, true);
++CREATE FUNCTION uv_upsert_hide_leak(x int) RETURNS boolean
++  LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'leaked %', x; END $$;
++CREATE VIEW uv_upsert_leak_inner WITH (security_barrier) AS
++  SELECT * FROM uv_upsert_hide_tab WHERE vis;
++CREATE VIEW uv_upsert_leak_outer WITH (security_barrier) AS
++  SELECT * FROM uv_upsert_leak_inner WHERE uv_upsert_hide_leak(secret);
++INSERT INTO uv_upsert_leak_outer VALUES (1, 0, true)
++  ON CONFLICT (id) DO UPDATE SET secret = 0 RETURNING *;   -- fails on inner view
++ERROR:  conflicting row is not visible through view "uv_upsert_leak_inner"
++INSERT INTO uv_upsert_leak_outer VALUES (2, 0, true)
++  ON CONFLICT (id) DO UPDATE SET secret = 0 RETURNING *;   -- outer quals do run
++ERROR:  leaked 333
++CONTEXT:  PL/pgSQL function uv_upsert_hide_leak(integer) line 1 at RAISE
++-- The same holds for a plain outer view
++CREATE VIEW uv_upsert_leak_plain_outer AS
++  SELECT * FROM uv_upsert_leak_inner WHERE uv_upsert_hide_leak(secret);
++INSERT INTO uv_upsert_leak_plain_outer VALUES (1, 0, true)
++  ON CONFLICT (id) DO UPDATE SET secret = 0 RETURNING *;   -- fails on inner view
++ERROR:  conflicting row is not visible through view "uv_upsert_leak_inner"
++INSERT INTO uv_upsert_leak_plain_outer VALUES (2, 0, true)
++  ON CONFLICT (id) DO UPDATE SET secret = 0 RETURNING *;   -- outer quals do run
++ERROR:  leaked 333
++CONTEXT:  PL/pgSQL function uv_upsert_hide_leak(integer) line 1 at RAISE
++DROP VIEW uv_upsert_leak_plain_outer, uv_upsert_leak_outer, uv_upsert_leak_inner;
++DROP FUNCTION uv_upsert_hide_leak(int);
++DROP TABLE uv_upsert_hide_tab;
+ -- security barrier view on top of table with rules
+ CREATE TABLE base_tbl(id int PRIMARY KEY, data text, deleted boolean);
+ INSERT INTO base_tbl VALUES (1, 'Row 1', false), (2, 'Row 2', true);
+@@ -2789,6 +2821,223 @@ select * from uv_iocu_tab;
+ 
+ drop view uv_iocu_view;
+ drop table uv_iocu_tab;
++-- INSERT .. ON CONFLICT DO UPDATE must not read or modify an existing row
++-- that is not visible through the view, security barrier or not
++create table uv_upsert_hide_tab (id int primary key, secret int, vis boolean);
++insert into uv_upsert_hide_tab values (1, 111, false), (2, 222, true);
++create view uv_upsert_barrier with (security_barrier) as
++  select * from uv_upsert_hide_tab where vis;
++create function uv_upsert_hide_leak(x int) returns boolean
++  language plpgsql as $$ begin raise exception 'leaked %', x; end $$;
++-- The conflict action's WHERE clause must not see the hidden row
++insert into uv_upsert_barrier values (1, 0, true)
++  on conflict (id) do update set secret = 0
++  where uv_upsert_hide_leak(uv_upsert_barrier.secret);         -- fails
++ERROR:  conflicting row is not visible through view "uv_upsert_barrier"
++-- Nor may the row be written outright
++insert into uv_upsert_barrier values (1, 0, true)
++  on conflict (id) do update set secret = 0 returning *;   -- fails
++ERROR:  conflicting row is not visible through view "uv_upsert_barrier"
++select * from uv_upsert_hide_tab order by id;
++ id | secret | vis 
++----+--------+-----
++  1 |    111 | f
++  2 |    222 | t
++(2 rows)
++
++-- DO NOTHING neither reads nor modifies the row, so it is unaffected
++insert into uv_upsert_barrier values (1, 0, true) on conflict (id) do nothing;
++-- The conflict action can still update and return a row that is visible
++-- through the view
++insert into uv_upsert_barrier values (2, 0, true)
++  on conflict (id) do update set secret = 333 returning *;
++ id | secret | vis 
++----+--------+-----
++  2 |    333 | t
++(1 row)
++
++-- Turning a visible row into one the view hides is allowed, as it is for
++-- UPDATE
++insert into uv_upsert_barrier values (2, 0, true)
++  on conflict (id) do update set vis = false returning *;
++ id | secret | vis 
++----+--------+-----
++  2 |    333 | f
++(1 row)
++
++select * from uv_upsert_hide_tab order by id;
++ id | secret | vis 
++----+--------+-----
++  1 |    111 | f
++  2 |    333 | f
++(2 rows)
++
++update uv_upsert_hide_tab set vis = true where id = 2;
++-- The same through a plain view
++create view uv_upsert_plain as
++  select * from uv_upsert_hide_tab where vis;
++insert into uv_upsert_plain values (1, 0, true)
++  on conflict (id) do update set secret = 0 returning *;   -- fails
++ERROR:  conflicting row is not visible through view "uv_upsert_plain"
++-- and through a view with a CHECK OPTION, even for a DO UPDATE that would
++-- make the hidden row visible: the CHECK OPTION concerns the new row, the
++-- conflict check the existing one
++create view uv_upsert_checkopt as
++  select * from uv_upsert_hide_tab where vis with check option;
++insert into uv_upsert_checkopt values (1, 0, true)
++  on conflict (id) do update set vis = true returning *;   -- fails
++ERROR:  conflicting row is not visible through view "uv_upsert_checkopt"
++select * from uv_upsert_hide_tab order by id;
++ id | secret | vis 
++----+--------+-----
++  1 |    111 | f
++  2 |    333 | t
++(2 rows)
++
++-- and through a view whose WHERE clause contains a sublink, though the
++-- INSERT itself contains none
++create table uv_upsert_vis_ids (id int primary key);
++insert into uv_upsert_vis_ids values (2);
++create view uv_upsert_sublink as
++  select * from uv_upsert_hide_tab
++  where id in (select id from uv_upsert_vis_ids);
++insert into uv_upsert_sublink values (1, 0, true)
++  on conflict (id) do update set secret = 0 returning *;   -- fails
++ERROR:  conflicting row is not visible through view "uv_upsert_sublink"
++insert into uv_upsert_sublink values (2, 0, true)
++  on conflict (id) do update set secret = 444 returning *; -- ok
++ id | secret | vis 
++----+--------+-----
++  2 |    444 | t
++(1 row)
++
++drop view uv_upsert_sublink,
++          uv_upsert_checkopt,
++          uv_upsert_plain,
++          uv_upsert_barrier;
++drop function uv_upsert_hide_leak(int);
++drop table uv_upsert_hide_tab, uv_upsert_vis_ids;
++-- INSERT .. ON CONFLICT through nested views: the conflicting row must be
++-- visible through every one of them, security barrier or not, whichever
++-- level hides it
++create table uv_upsert_hide_tab (id int primary key, secret int, vis boolean);
++insert into uv_upsert_hide_tab values (1, 111, false), (2, 333, true);
++create view uv_upsert_barrier with (security_barrier) as
++  select * from uv_upsert_hide_tab where vis;
++create view uv_upsert_plain_over_barrier as select * from uv_upsert_barrier where secret > 0;
++insert into uv_upsert_plain_over_barrier values (1, 1, true)
++  on conflict (id) do update set secret = 0 returning *;   -- fails on inner view
++ERROR:  conflicting row is not visible through view "uv_upsert_barrier"
++create view uv_upsert_plain_shows as
++  select * from uv_upsert_hide_tab where secret > 0;
++create view uv_upsert_barrier_over_plain with (security_barrier) as
++  select * from uv_upsert_plain_shows where vis;
++insert into uv_upsert_barrier_over_plain values (1, 1, true)
++  on conflict (id) do update set secret = 0 returning *;   -- fails on outer view
++ERROR:  conflicting row is not visible through view "uv_upsert_barrier_over_plain"
++-- The same when the inner view is plain, when the outer view has no quals
++-- of its own or a LOCAL check option, and across three levels
++create view uv_upsert_plain_hides as
++  select * from uv_upsert_hide_tab where vis;
++create view uv_upsert_barrier_over_hides with (security_barrier) as
++  select * from uv_upsert_plain_hides where secret > 0;
++insert into uv_upsert_barrier_over_hides values (1, 1, true)
++  on conflict (id) do update set secret = 0 returning *;   -- fails on inner view
++ERROR:  conflicting row is not visible through view "uv_upsert_plain_hides"
++insert into uv_upsert_barrier_over_hides values (2, 1, true)
++  on conflict (id) do update set secret = 444 returning *; -- ok
++ id | secret | vis 
++----+--------+-----
++  2 |    444 | t
++(1 row)
++
++create view uv_upsert_barrier_noquals_over_hides with (security_barrier) as
++  select * from uv_upsert_plain_hides;
++insert into uv_upsert_barrier_noquals_over_hides values (1, 1, true)
++  on conflict (id) do update set secret = 0 returning *;   -- fails on inner view
++ERROR:  conflicting row is not visible through view "uv_upsert_plain_hides"
++create view uv_upsert_wco_over_hides as
++  select * from uv_upsert_plain_hides where secret > 0 with local check option;
++insert into uv_upsert_wco_over_hides values (1, 1, true)
++  on conflict (id) do update set secret = 0 returning *;   -- fails on inner view
++ERROR:  conflicting row is not visible through view "uv_upsert_plain_hides"
++create view uv_upsert_mid as
++  select * from uv_upsert_plain_hides where secret > 0;
++create view uv_upsert_barrier_over_mid with (security_barrier) as
++  select * from uv_upsert_mid;
++insert into uv_upsert_barrier_over_mid values (1, 1, true)
++  on conflict (id) do update set secret = 0 returning *;   -- fails on innermost view
++ERROR:  conflicting row is not visible through view "uv_upsert_plain_hides"
++select * from uv_upsert_hide_tab order by id;
++ id | secret | vis 
++----+--------+-----
++  1 |    111 | f
++  2 |    444 | t
++(2 rows)
++
++drop view uv_upsert_barrier_over_mid,
++          uv_upsert_mid,
++          uv_upsert_wco_over_hides,
++          uv_upsert_barrier_noquals_over_hides,
++          uv_upsert_barrier_over_hides,
++          uv_upsert_plain_hides,
++          uv_upsert_barrier_over_plain,
++          uv_upsert_plain_shows,
++          uv_upsert_plain_over_barrier,
++          uv_upsert_barrier;
++drop table uv_upsert_hide_tab;
++-- A CASCADED CHECK OPTION must still reach the inner view's quals when the
++-- outer view also gets a conflict check
++create table uv_upsert_casc_tab (id int primary key, a int, b int);
++insert into uv_upsert_casc_tab values (1, 1, 1);
++create view uv_upsert_casc_inner as select * from uv_upsert_casc_tab where a > 0;
++create view uv_upsert_casc_outer as
++  select * from uv_upsert_casc_inner where b > 0 with cascaded check option;
++insert into uv_upsert_casc_outer values (1, 5, 5)
++  on conflict (id) do update set a = -1;  -- fails on inner view's check option
++ERROR:  new row violates check option for view "uv_upsert_casc_inner"
++DETAIL:  Failing row contains (1, -1, 1).
++select * from uv_upsert_casc_tab;
++ id | a | b 
++----+---+---
++  1 | 1 | 1
++(1 row)
++
++-- and the conflict check applies to the inner view too
++insert into uv_upsert_casc_tab values (3, -1, 1);
++insert into uv_upsert_casc_outer values (3, 1, 1)
++  on conflict (id) do update set a = 1 returning *;  -- fails on inner view
++ERROR:  conflicting row is not visible through view "uv_upsert_casc_inner"
++drop view uv_upsert_casc_outer, uv_upsert_casc_inner;
++drop table uv_upsert_casc_tab;
++-- INSERT .. ON CONFLICT through a view on a partitioned table: the conflict
++-- check must be translated for a partition whose columns are not in the
++-- parent's order
++create table uv_upsert_pt (id int primary key, secret int, vis boolean)
++  partition by range (id);
++create table uv_upsert_pt1 (vis boolean, secret int, id int not null);
++alter table uv_upsert_pt attach partition uv_upsert_pt1 for values from (0) to (100);
++insert into uv_upsert_pt values (1, 111, false), (2, 222, true);
++create view uv_upsert_ptv as select * from uv_upsert_pt where vis;
++insert into uv_upsert_ptv values (1, 0, true)
++  on conflict (id) do update set secret = 0 returning *;   -- fails
++ERROR:  conflicting row is not visible through view "uv_upsert_ptv"
++insert into uv_upsert_ptv values (2, 0, true)
++  on conflict (id) do update set secret = 333 returning *; -- ok
++ id | secret | vis 
++----+--------+-----
++  2 |    333 | t
++(1 row)
++
++select * from uv_upsert_pt order by id;
++ id | secret | vis 
++----+--------+-----
++  1 |    111 | f
++  2 |    333 | t
++(2 rows)
++
++drop view uv_upsert_ptv;
++drop table uv_upsert_pt;
+ -- Test whole-row references to the view
+ create table uv_iocu_tab (a int unique, b text);
+ create view uv_iocu_view as
+diff --git a/src/test/regress/sql/rowsecurity.sql b/src/test/regress/sql/rowsecurity.sql
+index 856ff643b47..9bc08985999 100644
+--- a/src/test/regress/sql/rowsecurity.sql
++++ b/src/test/regress/sql/rowsecurity.sql
+@@ -822,6 +822,21 @@ INSERT INTO document VALUES (3, (SELECT cid from category WHERE cname = 'novel')
+     ON CONFLICT (did) DO UPDATE SET dtitle = EXCLUDED.dtitle
+     WHERE document.dlevel = 99 RETURNING did, dtitle;
+ 
++-- The USING policy clauses are checked before the WHERE quals of a view,
++-- as they are before the ON CONFLICT WHERE clause, so f_leak must not emit
++-- a NOTICE for an existing row that fails them
++CREATE VIEW leaky_document_view AS SELECT * FROM document WHERE f_leak(dtitle);
++INSERT INTO leaky_document_view VALUES (3, (SELECT cid from category WHERE cname = 'novel'), 1, 'regress_rls_bob', 'another novel')
++    ON CONFLICT (did) DO UPDATE SET dtitle = excluded.dtitle RETURNING did, dtitle;
++
++-- The view's quals are evaluated against an existing row that passes the
++-- USING policy clauses, so f_leak does emit a NOTICE here, even though the
++-- ON CONFLICT WHERE clause then rejects the update
++INSERT INTO leaky_document_view VALUES (1, (SELECT cid from category WHERE cname = 'novel'), 1, 'regress_rls_bob', 'another novel')
++    ON CONFLICT (did) DO UPDATE SET dtitle = excluded.dtitle WHERE leaky_document_view.dlevel = 99 RETURNING did, dtitle;
++
++DROP VIEW leaky_document_view;
++
+ --
+ -- ROLE/GROUP
+ --
+diff --git a/src/test/regress/sql/updatable_views.sql b/src/test/regress/sql/updatable_views.sql
+index 3fe86858549..dd48a63110a 100644
+--- a/src/test/regress/sql/updatable_views.sql
++++ b/src/test/regress/sql/updatable_views.sql
+@@ -1083,6 +1083,38 @@ EXPLAIN (costs off) DELETE FROM rw_view2 WHERE NOT snoop(person);
+ 
+ DROP TABLE base_tbl CASCADE;
+ 
++-- INSERT .. ON CONFLICT through nested views: an inner security barrier
++-- view's quals are checked before an outer view's, as they are in a scan,
++-- so the outer view's quals are never evaluated against a row the inner
++-- view hides, only against a row it shows
++CREATE TABLE uv_upsert_hide_tab (id int PRIMARY KEY, secret int, vis boolean);
++INSERT INTO uv_upsert_hide_tab VALUES (1, 111, false), (2, 333, true);
++CREATE FUNCTION uv_upsert_hide_leak(x int) RETURNS boolean
++  LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'leaked %', x; END $$;
++
++CREATE VIEW uv_upsert_leak_inner WITH (security_barrier) AS
++  SELECT * FROM uv_upsert_hide_tab WHERE vis;
++CREATE VIEW uv_upsert_leak_outer WITH (security_barrier) AS
++  SELECT * FROM uv_upsert_leak_inner WHERE uv_upsert_hide_leak(secret);
++
++INSERT INTO uv_upsert_leak_outer VALUES (1, 0, true)
++  ON CONFLICT (id) DO UPDATE SET secret = 0 RETURNING *;   -- fails on inner view
++INSERT INTO uv_upsert_leak_outer VALUES (2, 0, true)
++  ON CONFLICT (id) DO UPDATE SET secret = 0 RETURNING *;   -- outer quals do run
++
++-- The same holds for a plain outer view
++CREATE VIEW uv_upsert_leak_plain_outer AS
++  SELECT * FROM uv_upsert_leak_inner WHERE uv_upsert_hide_leak(secret);
++
++INSERT INTO uv_upsert_leak_plain_outer VALUES (1, 0, true)
++  ON CONFLICT (id) DO UPDATE SET secret = 0 RETURNING *;   -- fails on inner view
++INSERT INTO uv_upsert_leak_plain_outer VALUES (2, 0, true)
++  ON CONFLICT (id) DO UPDATE SET secret = 0 RETURNING *;   -- outer quals do run
++
++DROP VIEW uv_upsert_leak_plain_outer, uv_upsert_leak_outer, uv_upsert_leak_inner;
++DROP FUNCTION uv_upsert_hide_leak(int);
++DROP TABLE uv_upsert_hide_tab;
++
+ -- security barrier view on top of table with rules
+ 
+ CREATE TABLE base_tbl(id int PRIMARY KEY, data text, deleted boolean);
+@@ -1362,6 +1394,176 @@ select * from uv_iocu_tab;
+ drop view uv_iocu_view;
+ drop table uv_iocu_tab;
+ 
++-- INSERT .. ON CONFLICT DO UPDATE must not read or modify an existing row
++-- that is not visible through the view, security barrier or not
++create table uv_upsert_hide_tab (id int primary key, secret int, vis boolean);
++insert into uv_upsert_hide_tab values (1, 111, false), (2, 222, true);
++create view uv_upsert_barrier with (security_barrier) as
++  select * from uv_upsert_hide_tab where vis;
++create function uv_upsert_hide_leak(x int) returns boolean
++  language plpgsql as $$ begin raise exception 'leaked %', x; end $$;
++
++-- The conflict action's WHERE clause must not see the hidden row
++insert into uv_upsert_barrier values (1, 0, true)
++  on conflict (id) do update set secret = 0
++  where uv_upsert_hide_leak(uv_upsert_barrier.secret);         -- fails
++
++-- Nor may the row be written outright
++insert into uv_upsert_barrier values (1, 0, true)
++  on conflict (id) do update set secret = 0 returning *;   -- fails
++select * from uv_upsert_hide_tab order by id;
++
++-- DO NOTHING neither reads nor modifies the row, so it is unaffected
++insert into uv_upsert_barrier values (1, 0, true) on conflict (id) do nothing;
++
++-- The conflict action can still update and return a row that is visible
++-- through the view
++insert into uv_upsert_barrier values (2, 0, true)
++  on conflict (id) do update set secret = 333 returning *;
++
++-- Turning a visible row into one the view hides is allowed, as it is for
++-- UPDATE
++insert into uv_upsert_barrier values (2, 0, true)
++  on conflict (id) do update set vis = false returning *;
++select * from uv_upsert_hide_tab order by id;
++update uv_upsert_hide_tab set vis = true where id = 2;
++
++-- The same through a plain view
++create view uv_upsert_plain as
++  select * from uv_upsert_hide_tab where vis;
++insert into uv_upsert_plain values (1, 0, true)
++  on conflict (id) do update set secret = 0 returning *;   -- fails
++
++-- and through a view with a CHECK OPTION, even for a DO UPDATE that would
++-- make the hidden row visible: the CHECK OPTION concerns the new row, the
++-- conflict check the existing one
++create view uv_upsert_checkopt as
++  select * from uv_upsert_hide_tab where vis with check option;
++insert into uv_upsert_checkopt values (1, 0, true)
++  on conflict (id) do update set vis = true returning *;   -- fails
++select * from uv_upsert_hide_tab order by id;
++
++-- and through a view whose WHERE clause contains a sublink, though the
++-- INSERT itself contains none
++create table uv_upsert_vis_ids (id int primary key);
++insert into uv_upsert_vis_ids values (2);
++create view uv_upsert_sublink as
++  select * from uv_upsert_hide_tab
++  where id in (select id from uv_upsert_vis_ids);
++
++insert into uv_upsert_sublink values (1, 0, true)
++  on conflict (id) do update set secret = 0 returning *;   -- fails
++insert into uv_upsert_sublink values (2, 0, true)
++  on conflict (id) do update set secret = 444 returning *; -- ok
++
++drop view uv_upsert_sublink,
++          uv_upsert_checkopt,
++          uv_upsert_plain,
++          uv_upsert_barrier;
++drop function uv_upsert_hide_leak(int);
++drop table uv_upsert_hide_tab, uv_upsert_vis_ids;
++
++-- INSERT .. ON CONFLICT through nested views: the conflicting row must be
++-- visible through every one of them, security barrier or not, whichever
++-- level hides it
++create table uv_upsert_hide_tab (id int primary key, secret int, vis boolean);
++insert into uv_upsert_hide_tab values (1, 111, false), (2, 333, true);
++create view uv_upsert_barrier with (security_barrier) as
++  select * from uv_upsert_hide_tab where vis;
++
++create view uv_upsert_plain_over_barrier as select * from uv_upsert_barrier where secret > 0;
++insert into uv_upsert_plain_over_barrier values (1, 1, true)
++  on conflict (id) do update set secret = 0 returning *;   -- fails on inner view
++
++create view uv_upsert_plain_shows as
++  select * from uv_upsert_hide_tab where secret > 0;
++create view uv_upsert_barrier_over_plain with (security_barrier) as
++  select * from uv_upsert_plain_shows where vis;
++insert into uv_upsert_barrier_over_plain values (1, 1, true)
++  on conflict (id) do update set secret = 0 returning *;   -- fails on outer view
++
++-- The same when the inner view is plain, when the outer view has no quals
++-- of its own or a LOCAL check option, and across three levels
++create view uv_upsert_plain_hides as
++  select * from uv_upsert_hide_tab where vis;
++
++create view uv_upsert_barrier_over_hides with (security_barrier) as
++  select * from uv_upsert_plain_hides where secret > 0;
++insert into uv_upsert_barrier_over_hides values (1, 1, true)
++  on conflict (id) do update set secret = 0 returning *;   -- fails on inner view
++insert into uv_upsert_barrier_over_hides values (2, 1, true)
++  on conflict (id) do update set secret = 444 returning *; -- ok
++
++create view uv_upsert_barrier_noquals_over_hides with (security_barrier) as
++  select * from uv_upsert_plain_hides;
++insert into uv_upsert_barrier_noquals_over_hides values (1, 1, true)
++  on conflict (id) do update set secret = 0 returning *;   -- fails on inner view
++
++create view uv_upsert_wco_over_hides as
++  select * from uv_upsert_plain_hides where secret > 0 with local check option;
++insert into uv_upsert_wco_over_hides values (1, 1, true)
++  on conflict (id) do update set secret = 0 returning *;   -- fails on inner view
++
++create view uv_upsert_mid as
++  select * from uv_upsert_plain_hides where secret > 0;
++create view uv_upsert_barrier_over_mid with (security_barrier) as
++  select * from uv_upsert_mid;
++insert into uv_upsert_barrier_over_mid values (1, 1, true)
++  on conflict (id) do update set secret = 0 returning *;   -- fails on innermost view
++
++select * from uv_upsert_hide_tab order by id;
++
++drop view uv_upsert_barrier_over_mid,
++          uv_upsert_mid,
++          uv_upsert_wco_over_hides,
++          uv_upsert_barrier_noquals_over_hides,
++          uv_upsert_barrier_over_hides,
++          uv_upsert_plain_hides,
++          uv_upsert_barrier_over_plain,
++          uv_upsert_plain_shows,
++          uv_upsert_plain_over_barrier,
++          uv_upsert_barrier;
++drop table uv_upsert_hide_tab;
++
++-- A CASCADED CHECK OPTION must still reach the inner view's quals when the
++-- outer view also gets a conflict check
++create table uv_upsert_casc_tab (id int primary key, a int, b int);
++insert into uv_upsert_casc_tab values (1, 1, 1);
++create view uv_upsert_casc_inner as select * from uv_upsert_casc_tab where a > 0;
++create view uv_upsert_casc_outer as
++  select * from uv_upsert_casc_inner where b > 0 with cascaded check option;
++
++insert into uv_upsert_casc_outer values (1, 5, 5)
++  on conflict (id) do update set a = -1;  -- fails on inner view's check option
++select * from uv_upsert_casc_tab;
++
++-- and the conflict check applies to the inner view too
++insert into uv_upsert_casc_tab values (3, -1, 1);
++insert into uv_upsert_casc_outer values (3, 1, 1)
++  on conflict (id) do update set a = 1 returning *;  -- fails on inner view
++
++drop view uv_upsert_casc_outer, uv_upsert_casc_inner;
++drop table uv_upsert_casc_tab;
++
++-- INSERT .. ON CONFLICT through a view on a partitioned table: the conflict
++-- check must be translated for a partition whose columns are not in the
++-- parent's order
++create table uv_upsert_pt (id int primary key, secret int, vis boolean)
++  partition by range (id);
++create table uv_upsert_pt1 (vis boolean, secret int, id int not null);
++alter table uv_upsert_pt attach partition uv_upsert_pt1 for values from (0) to (100);
++insert into uv_upsert_pt values (1, 111, false), (2, 222, true);
++create view uv_upsert_ptv as select * from uv_upsert_pt where vis;
++
++insert into uv_upsert_ptv values (1, 0, true)
++  on conflict (id) do update set secret = 0 returning *;   -- fails
++insert into uv_upsert_ptv values (2, 0, true)
++  on conflict (id) do update set secret = 333 returning *; -- ok
++select * from uv_upsert_pt order by id;
++
++drop view uv_upsert_ptv;
++drop table uv_upsert_pt;
++
+ -- Test whole-row references to the view
+ create table uv_iocu_tab (a int unique, b text);
+ create view uv_iocu_view as

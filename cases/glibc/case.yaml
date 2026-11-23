@@ -1,5 +1,5 @@
 # Single source of truth for this benchmark case.
-# bench:    refs, fix and forbidden human backports; never mounted into a run.
+# bench:    refs, fix, forbidden human backports; never mounted into a run.
 # pipeline: rendered into cases/<case>/run/case.yaml and mounted at /case.
 bench:
   upstream: https://github.com/bminor/glibc.git
@@ -18,6 +18,8 @@ bench:
     sha: c9188d333717d3ceb7e3020011651f424f749f93
   forbidden:
   - f18446d7b4a423090ee5e328c36b3c2a0f26041c
+  human:
+    mode: commits
 pipeline:
   issue_id: GLIBC-2026-11-memalign-overflow
   bug_description: |

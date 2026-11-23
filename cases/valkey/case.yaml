@@ -1,5 +1,5 @@
 # Single source of truth for this benchmark case.
-# bench:    refs, fix and forbidden human backports; never mounted into a run.
+# bench:    refs, fix, forbidden human backports; never mounted into a run.
 # pipeline: rendered into cases/<case>/run/case.yaml and mounted at /case.
 bench:
   upstream: https://github.com/valkey-io/valkey.git
@@ -17,6 +17,8 @@ bench:
     sha: fea0b4064cf612d1c365b032326832bff0946bd9
   forbidden:
   - fdc142c6558071c5009c9ef84ee804a33667b14d
+  human:
+    mode: commits
 pipeline:
   issue_id: CVE-2026-25243-valkey-restore-zipmap
   bug_description: |

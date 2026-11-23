@@ -1,5 +1,5 @@
 # Single source of truth for this benchmark case.
-# bench:    refs, fix and forbidden human backports; never mounted into a run.
+# bench:    refs, fix, forbidden human backports; never mounted into a run.
 # pipeline: rendered into cases/<case>/run/case.yaml and mounted at /case.
 bench:
   upstream: https://github.com/PCRE2Project/pcre2.git
@@ -16,6 +16,8 @@ bench:
     kind: commit
     sha: a141712e5967d448c7ce13090ab530c8e3d82254
   forbidden: []
+  human:
+    mode: none
 pipeline:
   issue_id: CVE-2025-58050-pcre2-10.45
   bug_description: |

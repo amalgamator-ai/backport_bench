@@ -1,5 +1,5 @@
 # Single source of truth for this benchmark case.
-# bench:    refs, fix and forbidden human backports; never mounted into a run.
+# bench:    refs, fix, forbidden human backports; never mounted into a run.
 # pipeline: rendered into cases/<case>/run/case.yaml and mounted at /case.
 bench:
   upstream: https://github.com/php/php-src.git
@@ -17,6 +17,9 @@ bench:
     kind: commit
     sha: 3584a98bda0f2c0d367255b046798b0d3a221a19
   forbidden: []
+  human:
+    mode: none
+  human_note: PHP-8.1 is EOL; the fix never landed on the branch (head == cut)
 pipeline:
   issue_id: GHSA-w8hw-6wmf-PHP-8.1-eol
   bug_description: |

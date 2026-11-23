@@ -11,3 +11,16 @@ models:
       max_tokens: 32768
       reasoning_effort: medium
 default: deepseek-v41-flash
+
+# Optional: a dedicated profile for the AI comparison judge. Select it with
+# JUDGE_PROFILE=<id> (or --profile) when running scripts/compare-case.sh or
+# scripts/compare-all.sh. Without it the default profile above is used.
+#  judge:
+#    provider: litellm
+#    model: openai/<stronger-model-name>
+#    api_base: https://<your-litellm-endpoint>/v1
+#    api_key_file: ~/.config/amalgamator/keys/<provider>
+#    context_length: 1000000
+#    params:
+#      max_tokens: 16384
+#      temperature: 0

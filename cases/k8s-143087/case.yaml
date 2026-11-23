@@ -1,5 +1,5 @@
 # Single source of truth for this benchmark case.
-# bench:    refs, fix and forbidden human backports; never mounted into a run.
+# bench:    refs, fix, forbidden human backports; never mounted into a run.
 # pipeline: rendered into cases/<case>/run/case.yaml and mounted at /case.
 bench:
   upstream: https://github.com/kubernetes/kubernetes.git
@@ -19,6 +19,8 @@ bench:
   tests_patch: cases/k8s-143087/tests.patch
   forbidden:
   - 53f77f1db9752c233ecd8898127c2855e9ff261d
+  human:
+    mode: commits
 pipeline:
   issue_id: k8s-143087-cherry-pick-1.35
   bug_description: |

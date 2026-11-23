@@ -1,0 +1,20 @@
+{
+  "case": "k8s-2270",
+  "mode": "commits",
+  "base": "cbc75b8ca4baa61a4e6542385141e15a2d840d0d",
+  "reference": "human",
+  "commits": [
+    {
+      "sha": "8013808e5eb5fbf205f106107526248ce750f0d2",
+      "date": "2026-07-08",
+      "subject": "Restore only .spec part from ControllerRevision for any StatefulSet"
+    }
+  ],
+  "files": [
+    "pkg/controller/statefulset/stateful_set_utils.go",
+    "pkg/controller/statefulset/stateful_set_utils_test.go"
+  ],
+  "patch_sha256": "054ee8c74b8edffcb0c7bb581b4ecaaa1b607f0430c2671554f69dc23e1f373c",
+  "added_lines_sha256": "c4afee0945afb3ea2e385c6dbf623a9e853276827d680188435d5ba7ad0303d5",
+  "applies_to_base": true
+}

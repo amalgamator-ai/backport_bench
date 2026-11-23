@@ -1,5 +1,5 @@
 # Single source of truth for this benchmark case.
-# bench:    refs, fix and forbidden human backports; never mounted into a run.
+# bench:    refs, fix, forbidden human backports; never mounted into a run.
 # pipeline: rendered into cases/<case>/run/case.yaml and mounted at /case.
 bench:
   upstream: https://github.com/golang/crypto.git
@@ -16,6 +16,8 @@ bench:
     kind: commit
     sha: 7292932d45d55c7199324ab0027cc86e8198aa22
   forbidden: []
+  human:
+    mode: none
 pipeline:
   issue_id: GO-2025-3487-xcrypto-ssh-kex-queue
   bug_description: |

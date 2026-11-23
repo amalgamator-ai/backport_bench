@@ -1,5 +1,5 @@
 # Single source of truth for this benchmark case.
-# bench:    refs, fix and forbidden human backports; never mounted into a run.
+# bench:    refs, fix, forbidden human backports; never mounted into a run.
 # pipeline: rendered into cases/<case>/run/case.yaml and mounted at /case.
 bench:
   upstream: https://github.com/opencontainers/runc.git
@@ -18,6 +18,8 @@ bench:
     sha: 2f74f4ae1b483b3a4d197f574a37c7b768baf96f
   forbidden:
   - cdee962c391af84a922252c283bd065e5cabb34b
+  human:
+    mode: commits
 pipeline:
   issue_id: CVE-2025-31133-31134-31135-runc-1.2
   bug_description: |

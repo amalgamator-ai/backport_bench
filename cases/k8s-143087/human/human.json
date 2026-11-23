@@ -1,0 +1,24 @@
+{
+  "case": "k8s-143087",
+  "mode": "commits",
+  "base": "16d4dfd6317ea18c38bb660f96dd3eaea30e963e",
+  "reference": "human",
+  "commits": [
+    {
+      "sha": "53f77f1db9752c233ecd8898127c2855e9ff261d",
+      "date": "2026-10-26",
+      "subject": "kubeadm: fix etcd data rollback and retry the etcd backup"
+    }
+  ],
+  "files": [
+    "cmd/kubeadm/app/phases/upgrade/staticpods.go",
+    "cmd/kubeadm/app/phases/upgrade/staticpods_test.go",
+    "cmd/kubeadm/app/util/copy.go",
+    "cmd/kubeadm/app/util/copy_test.go",
+    "cmd/kubeadm/app/util/copy_unix.go",
+    "cmd/kubeadm/app/util/copy_windows.go"
+  ],
+  "patch_sha256": "ff97a01d79adcde62224899f28ca7b1300aab1f24e293d97b168b668a7e5b6ac",
+  "added_lines_sha256": "b03fe74f3330be027bdb9455d04e3e25f2b07ffb5be98e7914cdaed33087fc06",
+  "applies_to_base": true
+}

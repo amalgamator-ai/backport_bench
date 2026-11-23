@@ -1,5 +1,5 @@
 # Single source of truth for this benchmark case.
-# bench:    refs, fix and forbidden human backports; never mounted into a run.
+# bench:    refs, fix, forbidden human backports; never mounted into a run.
 # pipeline: rendered into cases/<case>/run/case.yaml and mounted at /case.
 bench:
   upstream: https://github.com/python/cpython.git
@@ -20,6 +20,8 @@ bench:
   - 19de092debb3d7e832e5672cc2f7b788d35951da
   - aa9eb5f757ceff461e6e996f12c89e5d9b583b01
   - 4633f3f497b1ff70e4a35b6fe2c907cbe2d4cb2e
+  human:
+    mode: commits
 pipeline:
   issue_id: CVE-2024-12718-2025-4517-cpython-tarfile
   bug_description: |

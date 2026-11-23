@@ -1,0 +1,28 @@
+{
+  "case": "rsync",
+  "mode": "commits",
+  "base": "9bb61092e494397971dd40b1ce2e73829eacf820",
+  "reference": "human",
+  "commits": [
+    {
+      "sha": "ac47b0136349405f6c7198a298d454bbb37d0855",
+      "date": "2025-12-31",
+      "subject": "syscall+clientserver: am_chrooted and use_secure_symlinks for daemon-no-chroot (CVE-2026-29518)"
+    },
+    {
+      "sha": "04338c6b93da2ba9f218eb920e7eeb345a341d5f",
+      "date": "2026-03-01",
+      "subject": "sender: fix read-path TOCTOU by opening from module root (CVE-2026-29518)"
+    }
+  ],
+  "files": [
+    "clientserver.c",
+    "options.c",
+    "receiver.c",
+    "sender.c",
+    "syscall.c"
+  ],
+  "patch_sha256": "b5b624f67b0ba18e0bb31b30080465429432e464a248ce6c866b376db5e38767",
+  "added_lines_sha256": "fa57d14f4dba4f52afceab365fb046282106bda5c44bb8f997520d72bd6c60d4",
+  "applies_to_base": true
+}

@@ -1,0 +1,22 @@
+{
+  "case": "postgres-15742",
+  "mode": "commits",
+  "base": "1f49beef271ef920f129fcb8513c56347803444a",
+  "reference": "human",
+  "commits": [
+    {
+      "sha": "9505175f2a782bb63acd11d8d473a0ccedb719ea",
+      "date": "2026-08-10",
+      "subject": "Avoid overflow in Levenshtein distance calculations."
+    }
+  ],
+  "files": [
+    "contrib/fuzzystrmatch/expected/fuzzystrmatch.out",
+    "contrib/fuzzystrmatch/sql/fuzzystrmatch.sql",
+    "src/backend/utils/adt/levenshtein.c",
+    "src/backend/utils/adt/varlena.c"
+  ],
+  "patch_sha256": "3a850841939f59e301fbe039f603e58bb82eda566eaadf13419cd1b41c2b5239",
+  "added_lines_sha256": "2022b9ac4ecaf48087bca0a91e3834b8236249247d5ad414becf30b3afad6792",
+  "applies_to_base": true
+}

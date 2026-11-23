@@ -1,0 +1,21 @@
+{
+  "case": "valkey",
+  "mode": "commits",
+  "base": "e058d4690f7e4d8b34f2c7c260a1709dc3aa5ff8",
+  "reference": "human",
+  "commits": [
+    {
+      "sha": "fdc142c6558071c5009c9ef84ee804a33667b14d",
+      "date": "2026-05-06",
+      "subject": "Fix invalid memory access in RESTORE with malformed zipmap (CVE-2026-25243) (#3623)"
+    }
+  ],
+  "files": [
+    "src/rdb.c",
+    "src/zipmap.c",
+    "tests/unit/dump.tcl"
+  ],
+  "patch_sha256": "a4939fc830f013f598ddf1d2a298dc6dff2ba6dc14fb614f7aed540dcb814d43",
+  "added_lines_sha256": "5ff61b7bd02b32a3092da41916fb515c94b8a6c2c8bf6d21f88da1742699f867",
+  "applies_to_base": true
+}

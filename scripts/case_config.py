@@ -163,8 +163,45 @@ def render(case: str) -> Path:
                 raise SystemExit(
                     f"{case}: rendered {path.name} contains bench-only value {token!r}"
                 )
+        human = _human_leak(case, text)
+        if human:
+            shutil.rmtree(out)
+            raise SystemExit(
+                f"{case}: rendered {path.name} contains human backport line {human!r}"
+            )
     print(out)
     return out
+
+
+def _human_lines(case: str) -> list[str]:
+    """Distinctive added lines from the recorded human backport, if any.
+
+    Lines the source fix also contains are excluded: for patch-mode cases the
+    source fix is mounted on purpose, and sharing text with the human backport
+    is not a leak.
+    """
+    patch = CASES / case / "human" / "human.patch"
+    if not patch.is_file():
+        return []
+    source = "\n".join(
+        path.read_text(errors="replace")
+        for path in sorted((CASES / case).glob("*.patch"))
+    )
+    lines = []
+    for line in patch.read_text(errors="replace").splitlines():
+        if not line.startswith("+") or line.startswith("+++"):
+            continue
+        body = line[1:].strip()
+        if len(body) >= 50 and body not in source:
+            lines.append(body)
+    return sorted(set(lines))[:5000]
+
+
+def _human_leak(case: str, text: str) -> str | None:
+    for line in _human_lines(case):
+        if line in text:
+            return line
+    return None
 
 
 def check_render(case: str) -> None:
@@ -181,6 +218,9 @@ def check_render(case: str) -> None:
         for token in tokens:
             if token and token in text:
                 raise SystemExit(f"{case}: run/{path.name} contains {token!r}")
+        human = _human_leak(case, text)
+        if human:
+            raise SystemExit(f"{case}: run/{path.name} contains human backport line {human!r}")
 
 
 def validate(case: str) -> None:
@@ -210,6 +250,12 @@ def validate(case: str) -> None:
     for sha in bench.get("forbidden") or []:
         if len(sha) != 40:
             errors.append(f"forbidden entry is not a full SHA: {sha!r}")
+    human = bench.get("human") or {}
+    mode = human.get("mode")
+    if mode not in ("commits", "none"):
+        errors.append(f"bench.human.mode must be commits|none, got {mode!r}")
+    if mode == "commits" and not (human.get("commits") or bench.get("forbidden")):
+        errors.append("bench.human.mode=commits requires human.commits or bench.forbidden")
     if errors:
         raise SystemExit(f"{case}: " + "; ".join(errors))
 

@@ -1,0 +1,30 @@
+{
+  "case": "containerd",
+  "mode": "commits",
+  "base": "9d386ad4e2ae7dfc7fa59fa5d289b61b76ba6546",
+  "reference": "human",
+  "commits": [
+    {
+      "sha": "4d8ba4d23561c9ec21b0113ddcfc22f41792b25e",
+      "date": "2026-06-06",
+      "subject": "Do not propagate reserved labels from image configs"
+    }
+  ],
+  "files": [
+    "container_opts.go",
+    "container_opts_test.go",
+    "labels/labels.go",
+    "labels/validate.go",
+    "labels/validate_test.go",
+    "pkg/cri/labels/labels.go",
+    "pkg/cri/sbserver/helpers.go",
+    "pkg/cri/sbserver/helpers_test.go",
+    "pkg/cri/sbserver/podsandbox/helpers.go",
+    "pkg/cri/sbserver/podsandbox/helpers_test.go",
+    "pkg/cri/server/helpers.go",
+    "pkg/cri/server/helpers_test.go"
+  ],
+  "patch_sha256": "e52dd8d4204297110c641923fc66a32f2157986299b20e9fcd050edf7021d100",
+  "added_lines_sha256": "0f14845d5e09544a7c1c459ece8e910a2f27e4ba68b1b8b1f88776e8b4b17fed",
+  "applies_to_base": true
+}

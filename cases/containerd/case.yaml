@@ -1,5 +1,5 @@
 # Single source of truth for this benchmark case.
-# bench:    refs, fix and forbidden human backports; never mounted into a run.
+# bench:    refs, fix, forbidden human backports; never mounted into a run.
 # pipeline: rendered into cases/<case>/run/case.yaml and mounted at /case.
 bench:
   upstream: https://github.com/containerd/containerd.git
@@ -17,6 +17,8 @@ bench:
     sha: 0ec1af4cae1256d18719ca892bf66340499e8050
   forbidden:
   - 4d8ba4d23561c9ec21b0113ddcfc22f41792b25e
+  human:
+    mode: commits
 pipeline:
   issue_id: CVE-2026-53488-containerd-1.7
   bug_description: |

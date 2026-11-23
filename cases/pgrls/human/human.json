@@ -1,0 +1,27 @@
+{
+  "case": "pgrls",
+  "mode": "commits",
+  "base": "9fe1c78135f44c3c16c18d4aee305ec83fbc0c56",
+  "reference": "human",
+  "commits": [
+    {
+      "sha": "4167810cfe62d5ed4cf70a576a2eed87e2f246a8",
+      "date": "2026-11-09",
+      "subject": "Enforce view row visibility for INSERT ... ON CONFLICT target rows."
+    }
+  ],
+  "files": [
+    "doc/src/sgml/ref/create_view.sgml",
+    "src/backend/executor/execMain.c",
+    "src/backend/executor/nodeModifyTable.c",
+    "src/backend/rewrite/rewriteHandler.c",
+    "src/include/nodes/parsenodes.h",
+    "src/test/regress/expected/rowsecurity.out",
+    "src/test/regress/expected/updatable_views.out",
+    "src/test/regress/sql/rowsecurity.sql",
+    "src/test/regress/sql/updatable_views.sql"
+  ],
+  "patch_sha256": "d677fb7f9906373b75044879a5454e505f3509fa155d2bf5166d0f5ee1cb06b8",
+  "added_lines_sha256": "426c90c7cb86471f019e000e431211858985d5279fbca6eadeccb507b0246046",
+  "applies_to_base": true
+}

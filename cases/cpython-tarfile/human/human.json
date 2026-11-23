@@ -1,0 +1,29 @@
+{
+  "case": "cpython-tarfile",
+  "mode": "commits",
+  "base": "f3272d863004e291ab00620e71dee1cfa0fc9f83",
+  "reference": "human",
+  "commits": [
+    {
+      "sha": "19de092debb3d7e832e5672cc2f7b788d35951da",
+      "date": "2025-06-03",
+      "subject": "[3.12] gh-135034: Normalize link targets in tarfile, add `os.path.realpath(strict='allow_missing')` (GH-135037) (GH-135066)"
+    }
+  ],
+  "files": [
+    "Doc/library/os.path.rst",
+    "Doc/library/tarfile.rst",
+    "Doc/whatsnew/3.12.rst",
+    "Lib/genericpath.py",
+    "Lib/ntpath.py",
+    "Lib/posixpath.py",
+    "Lib/tarfile.py",
+    "Lib/test/test_ntpath.py",
+    "Lib/test/test_posixpath.py",
+    "Lib/test/test_tarfile.py",
+    "Misc/NEWS.d/next/Security/2025-06-02-11-32-23.gh-issue-135034.RLGjbp.rst"
+  ],
+  "patch_sha256": "2038b65a9c398196b3c6889e8dafe372a490eb5f9c34bbdcdde756e251eab3db",
+  "added_lines_sha256": "4d3d7a40aad4d9268c0e84c277173d8c91996b713fc8d42bae9067f8abc13299",
+  "applies_to_base": true
+}
